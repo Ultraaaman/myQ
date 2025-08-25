@@ -316,22 +316,113 @@ class FundamentalAnalyzer:
                     if pd.notna(value):
                         ratios[ratio_name] = float(value)
             
-            # 获取估值数据
+            # 获取估值数据 - 使用多种方法
             try:
+                # 方法1: 从个股信息获取
                 stock_info = ak.stock_individual_info_em(symbol=self.symbol)
+                pe_found = False
+                pb_found = False
+                
+                print(f"调试：获取到 {len(stock_info)} 个信息字段")
+                
                 for _, row in stock_info.iterrows():
-                    if row['item'] == '市盈率-动态':
+                    item_name = row['item']
+                    value = row['value']
+                    
+                    # 更全面的PE搜索关键字
+                    pe_keywords = ['市盈率', 'PE', 'P/E', '盈率', '动态市盈率', '静态市盈率', 'TTM市盈率']
+                    if not pe_found and any(keyword in item_name for keyword in pe_keywords):
                         try:
-                            ratios['PE'] = float(row['value'])
-                        except:
+                            # 处理可能的字符串格式
+                            if isinstance(value, str):
+                                value = value.replace(',', '').replace('倍', '')
+                            pe_val = float(value)
+                            if pe_val > 0 and pe_val < 1000:  # 合理的PE范围
+                                ratios['PE'] = pe_val
+                                pe_found = True
+                                print(f"找到PE: {item_name} = {pe_val}")
+                        except (ValueError, TypeError):
                             pass
-                    elif row['item'] == '市净率':
+                    
+                    # 更全面的PB搜索关键字
+                    pb_keywords = ['市净率', 'PB', 'P/B', '净率']
+                    if not pb_found and any(keyword in item_name for keyword in pb_keywords):
                         try:
-                            ratios['PB'] = float(row['value'])
-                        except:
+                            # 处理可能的字符串格式
+                            if isinstance(value, str):
+                                value = value.replace(',', '').replace('倍', '')
+                            pb_val = float(value)
+                            if pb_val > 0 and pb_val < 100:  # 合理的PB范围
+                                ratios['PB'] = pb_val
+                                pb_found = True
+                                print(f"找到PB: {item_name} = {pb_val}")
+                        except (ValueError, TypeError):
                             pass
-            except:
-                pass
+                
+                
+                
+                # 方法3: 手动计算PE/PB（如果有必要数据）
+                if not pe_found or not pb_found:
+                    try:
+                        # 尝试从财务指标获取EPS和股价来计算PE
+                        if 'indicators' in self.financial_data and not pe_found:
+                            indicators = self.financial_data['indicators']
+                            latest_financial = indicators.iloc[-1]
+                            
+                            # 寻找每股收益
+                            eps_candidates = ['摊薄每股收益(元)', '基本每股收益(元)', '每股收益(元)']
+                            for eps_col in eps_candidates:
+                                if eps_col in latest_financial.index and pd.notna(latest_financial[eps_col]):
+                                    eps = float(latest_financial[eps_col])
+                                    if eps > 0:
+                                        # 获取当前股价
+                                        try:
+                                            stock_zh_a_hist = ak.stock_zh_a_hist(symbol=self.symbol, period="daily", adjust="")
+                                            if not stock_zh_a_hist.empty:
+                                                current_price = stock_zh_a_hist.iloc[-1]['收盘']
+                                                pe_calculated = current_price / eps
+                                                if pe_calculated > 0 and pe_calculated < 1000:
+                                                    ratios['PE'] = pe_calculated
+                                                    pe_found = True
+                                                    print(f"手动计算PE: {current_price} / {eps} = {pe_calculated:.2f}")
+                                                break
+                                        except:
+                                            pass
+                        
+                        # 尝试从财务指标获取每股净资产来计算PB
+                        if 'indicators' in self.financial_data and not pb_found:
+                            indicators = self.financial_data['indicators']
+                            latest_financial = indicators.iloc[-1]
+                            
+                            # 寻找每股净资产
+                            bps_candidates = ['每股净资产_调整后(元)', '每股净资产(元)', '每股账面价值(元)']
+                            for bps_col in bps_candidates:
+                                if bps_col in latest_financial.index and pd.notna(latest_financial[bps_col]):
+                                    bps = float(latest_financial[bps_col])
+                                    if bps > 0:
+                                        # 获取当前股价
+                                        try:
+                                            stock_zh_a_hist = ak.stock_zh_a_hist(symbol=self.symbol, period="daily", adjust="")
+                                            if not stock_zh_a_hist.empty:
+                                                current_price = stock_zh_a_hist.iloc[-1]['收盘']
+                                                pb_calculated = current_price / bps
+                                                if pb_calculated > 0 and pb_calculated < 100:
+                                                    ratios['PB'] = pb_calculated
+                                                    pb_found = True
+                                                    print(f"手动计算PB: {current_price} / {bps} = {pb_calculated:.2f}")
+                                                break
+                                        except:
+                                            pass
+                    except Exception as e3:
+                        print(f"手动计算PE/PB失败: {e3}")
+                
+                if not pe_found:
+                    print("未能获取PE数据")
+                if not pb_found:
+                    print("未能获取PB数据")
+                        
+            except Exception as e:
+                print(f"获取估值数据时出错: {e}")
             
             self.ratios = ratios
             
@@ -457,12 +548,30 @@ class FundamentalAnalyzer:
                         except (ValueError, TypeError):
                             return default
                     
+                    # 更全面地搜索PE/PB数据
+                    pe_value = 0
+                    pb_value = 0
+                    
+                    # 搜索PE
+                    pe_keys = ['市盈率-动态', '市盈率', 'PE', '动态市盈率', 'TTM市盈率']
+                    for key in pe_keys:
+                        if key in info_dict and safe_float(info_dict[key], 0) > 0:
+                            pe_value = safe_float(info_dict[key], 0)
+                            break
+                    
+                    # 搜索PB
+                    pb_keys = ['市净率', 'PB', '市净率(MRQ)']
+                    for key in pb_keys:
+                        if key in info_dict and safe_float(info_dict[key], 0) > 0:
+                            pb_value = safe_float(info_dict[key], 0)
+                            break
+                    
                     data = {
                         'Symbol': symbol,
                         'Company': info_dict.get('股票简称', symbol),
                         'Market Cap': safe_float(info_dict.get('总市值', 0)) / 1e8,  # 转换为亿
-                        'PE': safe_float(info_dict.get('市盈率-动态', 0)),
-                        'PB': safe_float(info_dict.get('市净率', 0)),
+                        'PE': pe_value,
+                        'PB': pb_value,
                         'ROE': ratios.get('ROE', 0),
                         'ROA': ratios.get('ROA', 0),
                         'Net Margin': ratios.get('净利率', 0),
