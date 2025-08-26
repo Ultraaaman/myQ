@@ -496,6 +496,89 @@ class FundamentalAnalyzer:
                 debt_ratio = ratios['资产负债率'] / 100
                 if debt_ratio < 1:
                     ratios['Debt/Equity'] = debt_ratio / (1 - debt_ratio)
+            
+            # 添加PE和PB计算 - 使用与calculate_financial_ratios相同的逻辑
+            try:
+                # 从个股信息获取PE和PB
+                stock_info = ak.stock_individual_info_em(symbol=symbol)
+                pe_found = False
+                pb_found = False
+                
+                for _, row in stock_info.iterrows():
+                    item_name = row['item']
+                    value = row['value']
+                    
+                    # PE搜索
+                    pe_keywords = ['市盈率', 'PE', 'P/E', '盈率', '动态市盈率', '静态市盈率', 'TTM市盈率']
+                    if not pe_found and any(keyword in item_name for keyword in pe_keywords):
+                        try:
+                            if isinstance(value, str):
+                                value = value.replace(',', '').replace('倍', '')
+                            pe_val = float(value)
+                            if pe_val > 0 and pe_val < 1000:
+                                ratios['PE'] = pe_val
+                                pe_found = True
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    # PB搜索
+                    pb_keywords = ['市净率', 'PB', 'P/B', '净率']
+                    if not pb_found and any(keyword in item_name for keyword in pb_keywords):
+                        try:
+                            if isinstance(value, str):
+                                value = value.replace(',', '').replace('倍', '')
+                            pb_val = float(value)
+                            if pb_val > 0 and pb_val < 100:
+                                ratios['PB'] = pb_val
+                                pb_found = True
+                        except (ValueError, TypeError):
+                            pass
+                
+                # 手动计算PE/PB（如果没有找到）
+                if not pe_found or not pb_found:
+                    try:
+                        # 寻找每股收益来计算PE
+                        if not pe_found:
+                            eps_candidates = ['摊薄每股收益(元)', '基本每股收益(元)', '每股收益(元)']
+                            for eps_col in eps_candidates:
+                                if eps_col in latest.index and pd.notna(latest[eps_col]):
+                                    eps = float(latest[eps_col])
+                                    if eps > 0:
+                                        try:
+                                            stock_zh_a_hist = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust="")
+                                            if not stock_zh_a_hist.empty:
+                                                current_price = stock_zh_a_hist.iloc[-1]['收盘']
+                                                pe_calculated = current_price / eps
+                                                if pe_calculated > 0 and pe_calculated < 1000:
+                                                    ratios['PE'] = pe_calculated
+                                                    pe_found = True
+                                                break
+                                        except:
+                                            pass
+                        
+                        # 寻找每股净资产来计算PB
+                        if not pb_found:
+                            bps_candidates = ['每股净资产_调整后(元)', '每股净资产(元)', '每股账面价值(元)']
+                            for bps_col in bps_candidates:
+                                if bps_col in latest.index and pd.notna(latest[bps_col]):
+                                    bps = float(latest[bps_col])
+                                    if bps > 0:
+                                        try:
+                                            stock_zh_a_hist = ak.stock_zh_a_hist(symbol=symbol, period="daily", adjust="")
+                                            if not stock_zh_a_hist.empty:
+                                                current_price = stock_zh_a_hist.iloc[-1]['收盘']
+                                                pb_calculated = current_price / bps
+                                                if pb_calculated > 0 and pb_calculated < 100:
+                                                    ratios['PB'] = pb_calculated
+                                                    pb_found = True
+                                                break
+                                        except:
+                                            pass
+                    except Exception:
+                        pass
+                        
+            except Exception:
+                pass
                     
             return ratios
             
@@ -536,7 +619,7 @@ class FundamentalAnalyzer:
                     for _, row in stock_info.iterrows():
                         info_dict[row['item']] = row['value']
                     
-                    # 获取财务比率数据
+                    # 获取财务比率数据（现在包含PE和PB）
                     ratios = self._get_cn_stock_ratios(symbol, start_year)
                     
                     # 安全获取数值函数
@@ -548,30 +631,12 @@ class FundamentalAnalyzer:
                         except (ValueError, TypeError):
                             return default
                     
-                    # 更全面地搜索PE/PB数据
-                    pe_value = 0
-                    pb_value = 0
-                    
-                    # 搜索PE
-                    pe_keys = ['市盈率-动态', '市盈率', 'PE', '动态市盈率', 'TTM市盈率']
-                    for key in pe_keys:
-                        if key in info_dict and safe_float(info_dict[key], 0) > 0:
-                            pe_value = safe_float(info_dict[key], 0)
-                            break
-                    
-                    # 搜索PB
-                    pb_keys = ['市净率', 'PB', '市净率(MRQ)']
-                    for key in pb_keys:
-                        if key in info_dict and safe_float(info_dict[key], 0) > 0:
-                            pb_value = safe_float(info_dict[key], 0)
-                            break
-                    
                     data = {
                         'Symbol': symbol,
                         'Company': info_dict.get('股票简称', symbol),
                         'Market Cap': safe_float(info_dict.get('总市值', 0)) / 1e8,  # 转换为亿
-                        'PE': pe_value,
-                        'PB': pb_value,
+                        'PE': ratios.get('PE', 0),  # 现在从ratios获取，而不是info_dict
+                        'PB': ratios.get('PB', 0),  # 现在从ratios获取，而不是info_dict
                         'ROE': ratios.get('ROE', 0),
                         'ROA': ratios.get('ROA', 0),
                         'Net Margin': ratios.get('净利率', 0),
