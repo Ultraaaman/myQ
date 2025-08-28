@@ -238,6 +238,32 @@ class FundamentalAnalyzer:
                     if assets != 0:
                         ratios['ROA'] = (net_income / assets) * 100
             
+            # 成长性指标
+            if len(financials.columns) >= 2:
+                current_period = financials.columns[0]
+                previous_period = financials.columns[1]
+                
+                # 营收增长率
+                if 'Total Revenue' in financials.index:
+                    current_revenue = financials.loc['Total Revenue', current_period]
+                    previous_revenue = financials.loc['Total Revenue', previous_period]
+                    if previous_revenue != 0 and pd.notna(previous_revenue):
+                        ratios['Revenue Growth'] = ((current_revenue - previous_revenue) / previous_revenue) * 100
+                
+                # 净利润增长率
+                if 'Net Income' in financials.index:
+                    current_income = financials.loc['Net Income', current_period]
+                    previous_income = financials.loc['Net Income', previous_period]
+                    if previous_income != 0 and pd.notna(previous_income) and previous_income > 0:
+                        ratios['Net Income Growth'] = ((current_income - previous_income) / previous_income) * 100
+                
+                # EPS增长率
+                if shares_outstanding:
+                    current_eps = financials.loc['Net Income', current_period] / shares_outstanding
+                    previous_eps = financials.loc['Net Income', previous_period] / shares_outstanding
+                    if previous_eps != 0 and pd.notna(previous_eps) and previous_eps > 0:
+                        ratios['EPS Growth'] = ((current_eps - previous_eps) / previous_eps) * 100
+
             # 估值比率
             if current_price and shares_outstanding:
                 market_cap = current_price * shares_outstanding
@@ -251,7 +277,69 @@ class FundamentalAnalyzer:
                     equity = balance_sheet.loc['Total Stockholder Equity', latest_period]
                     if equity > 0:
                         ratios['PB'] = market_cap / equity
+                
+                # 股息相关指标
+                dividends_info = self.company_info.get('dividendYield', 0)
+                if dividends_info:
+                    ratios['Dividend Yield'] = dividends_info * 100
+                
+                payout_ratio = self.company_info.get('payoutRatio', 0)
+                if payout_ratio:
+                    ratios['Payout Ratio'] = payout_ratio * 100
             
+            # 资产质量指标
+            if 'Total Assets' in balance_sheet.index:
+                total_assets = balance_sheet.loc['Total Assets', latest_period]
+                
+                # 商誉占比
+                if 'Goodwill' in balance_sheet.index:
+                    goodwill = balance_sheet.loc['Goodwill', latest_period]
+                    if pd.notna(goodwill) and total_assets != 0:
+                        ratios['Goodwill Ratio'] = (goodwill / total_assets) * 100
+                
+                # 无形资产比例
+                if 'Intangible Assets' in balance_sheet.index:
+                    intangible = balance_sheet.loc['Intangible Assets', latest_period]
+                    if pd.notna(intangible) and total_assets != 0:
+                        ratios['Intangible Assets Ratio'] = (intangible / total_assets) * 100
+                
+                # 有形资产净值比率
+                tangible_assets = total_assets
+                if 'Goodwill' in balance_sheet.index:
+                    tangible_assets -= balance_sheet.loc['Goodwill', latest_period] or 0
+                if 'Intangible Assets' in balance_sheet.index:
+                    tangible_assets -= balance_sheet.loc['Intangible Assets', latest_period] or 0
+                
+                if 'Total Stockholder Equity' in balance_sheet.index:
+                    equity = balance_sheet.loc['Total Stockholder Equity', latest_period]
+                    if equity != 0:
+                        ratios['Tangible Book Value Ratio'] = (tangible_assets - (balance_sheet.loc['Total Liabilities Net Minority Interest', latest_period] if 'Total Liabilities Net Minority Interest' in balance_sheet.index else 0)) / equity
+
+            # 现金流质量指标
+            cash_flow = self.financial_data.get('cash_flow')
+            if cash_flow is not None and 'Operating Cash Flow' in cash_flow.index:
+                operating_cf = cash_flow.loc['Operating Cash Flow', latest_period]
+                
+                # 经营现金流/净利润比率
+                if 'Net Income' in financials.index:
+                    net_income = financials.loc['Net Income', latest_period]
+                    if net_income != 0 and pd.notna(net_income) and net_income > 0:
+                        ratios['Operating CF to Net Income'] = (operating_cf / net_income) * 100
+                
+                # 自由现金流
+                capex = 0
+                if 'Capital Expenditures' in cash_flow.index:
+                    capex = abs(cash_flow.loc['Capital Expenditures', latest_period] or 0)
+                
+                free_cash_flow = operating_cf - capex
+                ratios['Free Cash Flow'] = free_cash_flow
+                
+                # 自由现金流收益率
+                if shares_outstanding and current_price:
+                    market_cap = current_price * shares_outstanding
+                    if market_cap != 0:
+                        ratios['Free Cash Flow Yield'] = (free_cash_flow / market_cap) * 100
+
             # 偿债能力比率
             if 'Current Assets' in balance_sheet.index and 'Current Liab' in balance_sheet.index:
                 current_assets = balance_sheet.loc['Current Assets', latest_period]
@@ -265,11 +353,15 @@ class FundamentalAnalyzer:
                 if total_assets != 0:
                     ratios['资产负债率'] = (total_debt / total_assets) * 100
             
+            # 市场表现指标
+            market_ratios = self._calculate_market_performance_ratios()
+            ratios.update(market_ratios)
+            
             self.ratios = ratios
             
             print("关键财务比率:")
             for ratio_name, ratio_value in ratios.items():
-                if '率' in ratio_name or 'ROE' in ratio_name or 'ROA' in ratio_name:
+                if '率' in ratio_name or 'ROE' in ratio_name or 'ROA' in ratio_name or 'Growth' in ratio_name or 'Yield' in ratio_name or 'Ratio' in ratio_name and ratio_name not in ['流动比率']:
                     print(f"  {ratio_name}: {ratio_value:.2f}%")
                 else:
                     print(f"  {ratio_name}: {ratio_value:.2f}")
@@ -279,6 +371,240 @@ class FundamentalAnalyzer:
         except Exception as e:
             print(f"计算美股财务比率失败: {e}")
             return False
+    
+    def _calculate_market_performance_ratios(self):
+        """计算市场表现指标"""
+        market_ratios = {}
+        
+        try:
+            if self.market == 'US' and self.ticker:
+                # 获取历史价格数据计算波动率和beta
+                hist_data = self.ticker.history(period="2y")  # 2年数据
+                
+                if not hist_data.empty and len(hist_data) > 252:  # 至少一年数据
+                    # 计算日收益率
+                    returns = hist_data['Close'].pct_change().dropna()
+                    
+                    # 计算年化波动率
+                    volatility = returns.std() * np.sqrt(252) * 100  # 年化波动率(%)
+                    market_ratios['Volatility'] = volatility
+                    
+                    # 计算beta（相对于SPY的beta）
+                    try:
+                        spy = yf.Ticker("SPY")
+                        spy_hist = spy.history(period="2y")
+                        
+                        if not spy_hist.empty:
+                            spy_returns = spy_hist['Close'].pct_change().dropna()
+                            
+                            # 对齐时间序列
+                            common_dates = returns.index.intersection(spy_returns.index)
+                            if len(common_dates) > 100:
+                                stock_aligned = returns.loc[common_dates]
+                                market_aligned = spy_returns.loc[common_dates]
+                                
+                                # 计算beta
+                                covariance = np.cov(stock_aligned, market_aligned)[0, 1]
+                                market_variance = np.var(market_aligned)
+                                if market_variance != 0:
+                                    beta = covariance / market_variance
+                                    market_ratios['Beta'] = beta
+                    except:
+                        pass  # 如果无法获取SPY数据，跳过beta计算
+                    
+                    # 计算夏普比率（假设无风险利率为3%）
+                    risk_free_rate = 0.03
+                    excess_returns = returns.mean() * 252 - risk_free_rate  # 年化超额收益
+                    if volatility > 0:
+                        sharpe_ratio = excess_returns / (volatility / 100)
+                        market_ratios['Sharpe Ratio'] = sharpe_ratio
+                    
+                    # 价格趋势指标
+                    if len(hist_data) >= 50:
+                        # 相对强弱指标 (简化版)
+                        price_change_1m = (hist_data['Close'].iloc[-1] - hist_data['Close'].iloc[-22]) / hist_data['Close'].iloc[-22] * 100 if len(hist_data) >= 22 else 0
+                        price_change_3m = (hist_data['Close'].iloc[-1] - hist_data['Close'].iloc[-66]) / hist_data['Close'].iloc[-66] * 100 if len(hist_data) >= 66 else 0
+                        
+                        market_ratios['1M Price Change'] = price_change_1m
+                        market_ratios['3M Price Change'] = price_change_3m
+            
+            elif self.market == 'CN' and AKSHARE_AVAILABLE:
+                # A股市场表现指标
+                try:
+                    # 获取历史价格数据
+                    stock_hist = ak.stock_zh_a_hist(symbol=self.symbol, period="daily", adjust="qfq")
+                    
+                    if not stock_hist.empty and len(stock_hist) > 252:
+                        # 计算日收益率
+                        stock_hist['收盘'] = pd.to_numeric(stock_hist['收盘'], errors='coerce')
+                        returns = stock_hist['收盘'].pct_change().dropna()
+                        
+                        # 年化波动率
+                        volatility = returns.std() * np.sqrt(252) * 100
+                        market_ratios['Volatility'] = volatility
+                        
+                        # 获取沪深300作为市场基准计算beta
+                        try:
+                            market_hist = ak.stock_zh_index_daily(symbol="sh000300")  # 沪深300
+                            if not market_hist.empty:
+                                market_hist['close'] = pd.to_numeric(market_hist['close'], errors='coerce')
+                                market_returns = market_hist['close'].pct_change().dropna()
+                                
+                                # 对齐时间序列（简化处理）
+                                min_len = min(len(returns), len(market_returns))
+                                if min_len > 100:
+                                    stock_ret = returns.iloc[-min_len:]
+                                    market_ret = market_returns.iloc[-min_len:]
+                                    
+                                    covariance = np.cov(stock_ret, market_ret)[0, 1]
+                                    market_variance = np.var(market_ret)
+                                    if market_variance != 0:
+                                        beta = covariance / market_variance
+                                        market_ratios['Beta'] = beta
+                        except:
+                            pass
+                        
+                        # 价格变化趋势
+                        if len(stock_hist) >= 22:
+                            current_price = stock_hist['收盘'].iloc[-1]
+                            price_1m = stock_hist['收盘'].iloc[-22] if len(stock_hist) >= 22 else current_price
+                            price_3m = stock_hist['收盘'].iloc[-66] if len(stock_hist) >= 66 else current_price
+                            
+                            if price_1m != 0:
+                                market_ratios['1M Price Change'] = (current_price - price_1m) / price_1m * 100
+                            if price_3m != 0:
+                                market_ratios['3M Price Change'] = (current_price - price_3m) / price_3m * 100
+                
+                except Exception as e:
+                    print(f"计算A股市场指标失败: {e}")
+            
+        except Exception as e:
+            print(f"计算市场表现指标失败: {e}")
+        
+        return market_ratios
+    
+    def print_detailed_ratios_summary(self):
+        """打印详细的分类指标汇总"""
+        if not self.ratios:
+            print("没有可显示的财务比率数据")
+            return
+        
+        print(f"\n{'='*80}")
+        print("详细财务指标分类汇总")
+        print('='*80)
+        
+        # 盈利能力指标
+        profitability_ratios = {}
+        for key in ['ROE', 'ROA', '净利率', '毛利率', '营业利润率', '总资产利润率']:
+            if key in self.ratios:
+                profitability_ratios[key] = self.ratios[key]
+        
+        if profitability_ratios:
+            print("\n📈 盈利能力指标:")
+            for name, value in profitability_ratios.items():
+                print(f"  {name:12}: {value:8.2f}%")
+        
+        # 成长性指标
+        growth_ratios = {}
+        for key in ['Revenue Growth', 'Net Income Growth', 'EPS Growth', 'Total Assets Growth']:
+            if key in self.ratios:
+                growth_ratios[key] = self.ratios[key]
+        
+        if growth_ratios:
+            print("\n🚀 成长性指标:")
+            for name, value in growth_ratios.items():
+                print(f"  {name:18}: {value:8.2f}%")
+        
+        # 现金流质量指标
+        cashflow_ratios = {}
+        for key in ['Operating CF to Net Income', 'Free Cash Flow', 'Free Cash Flow Yield']:
+            if key in self.ratios:
+                cashflow_ratios[key] = self.ratios[key]
+        
+        if cashflow_ratios:
+            print("\n💰 现金流质量指标:")
+            for name, value in cashflow_ratios.items():
+                if 'Yield' in name or 'Net Income' in name:
+                    print(f"  {name:25}: {value:8.2f}%")
+                else:
+                    print(f"  {name:25}: {value:,.0f}")
+        
+        # 偿债能力指标
+        solvency_ratios = {}
+        for key in ['资产负债率', '流动比率', '速动比率', '股东权益比率']:
+            if key in self.ratios:
+                solvency_ratios[key] = self.ratios[key]
+        
+        if solvency_ratios:
+            print("\n🛡️ 偿债能力指标:")
+            for name, value in solvency_ratios.items():
+                if '比率' in name and name not in ['流动比率', '速动比率']:
+                    print(f"  {name:12}: {value:8.2f}%")
+                else:
+                    print(f"  {name:12}: {value:8.2f}")
+        
+        # 营运能力指标
+        efficiency_ratios = {}
+        for key in ['存货周转率', '应收账款周转率', '总资产周转率']:
+            if key in self.ratios:
+                efficiency_ratios[key] = self.ratios[key]
+        
+        if efficiency_ratios:
+            print("\n⚡ 营运能力指标:")
+            for name, value in efficiency_ratios.items():
+                print(f"  {name:15}: {value:8.2f}次")
+        
+        # 估值指标
+        valuation_ratios = {}
+        for key in ['PE', 'PB']:
+            if key in self.ratios:
+                valuation_ratios[key] = self.ratios[key]
+        
+        if valuation_ratios:
+            print("\n💎 估值指标:")
+            for name, value in valuation_ratios.items():
+                print(f"  {name:12}: {value:8.2f}倍")
+        
+        # 股息指标
+        dividend_ratios = {}
+        for key in ['Dividend Yield', 'Payout Ratio']:
+            if key in self.ratios:
+                dividend_ratios[key] = self.ratios[key]
+        
+        if dividend_ratios:
+            print("\n💵 股息指标:")
+            for name, value in dividend_ratios.items():
+                print(f"  {name:15}: {value:8.2f}%")
+        
+        # 资产质量指标
+        quality_ratios = {}
+        for key in ['Goodwill Ratio', 'Intangible Assets Ratio', 'Tangible Book Value Ratio']:
+            if key in self.ratios:
+                quality_ratios[key] = self.ratios[key]
+        
+        if quality_ratios:
+            print("\n🏗️ 资产质量指标:")
+            for name, value in quality_ratios.items():
+                if 'Ratio' in name and name != 'Tangible Book Value Ratio':
+                    print(f"  {name:25}: {value:8.2f}%")
+                else:
+                    print(f"  {name:25}: {value:8.2f}")
+        
+        # 市场表现指标
+        market_ratios = {}
+        for key in ['Beta', 'Volatility', 'Sharpe Ratio', '1M Price Change', '3M Price Change']:
+            if key in self.ratios:
+                market_ratios[key] = self.ratios[key]
+        
+        if market_ratios:
+            print("\n📊 市场表现指标:")
+            for name, value in market_ratios.items():
+                if 'Change' in name or 'Volatility' in name:
+                    print(f"  {name:18}: {value:8.2f}%")
+                else:
+                    print(f"  {name:18}: {value:8.2f}")
+        
+        print(f"\n{'='*80}")
     
     def _calculate_cn_ratios(self, start_year="2020"):
         """计算中国股票财务比率"""
@@ -310,11 +636,37 @@ class FundamentalAnalyzer:
                 '股东权益比率': '股东权益比率(%)'
             }
             
+            # 计算成长性指标
+            growth_mappings = {
+                'Revenue Growth': '主营业务收入增长率(%)',
+                'Net Income Growth': '净利润增长率(%)',
+                'Total Assets Growth': '总资产增长率(%)'
+            }
+            
             for ratio_name, column_name in ratio_mappings.items():
                 if column_name in latest.index:
                     value = latest[column_name]
                     if pd.notna(value):
                         ratios[ratio_name] = float(value)
+            
+            # 添加成长性指标
+            for ratio_name, column_name in growth_mappings.items():
+                if column_name in latest.index:
+                    value = latest[column_name]
+                    if pd.notna(value):
+                        ratios[ratio_name] = float(value)
+            
+            # 计算现金流质量指标
+            if len(indicators) >= 2:
+                # 使用最近两期数据计算现金流质量
+                prev_latest = indicators.iloc[-2]
+                
+                # 经营现金流/净利润比率
+                if '每股经营性现金流(元)' in latest.index and '摊薄每股收益(元)' in latest.index:
+                    ocf_per_share = latest['每股经营性现金流(元)']
+                    eps = latest['摊薄每股收益(元)']
+                    if pd.notna(ocf_per_share) and pd.notna(eps) and eps != 0:
+                        ratios['Operating CF to Net Income'] = (ocf_per_share / eps) * 100
             
             # 获取估值数据 - 使用多种方法
             try:
@@ -424,15 +776,16 @@ class FundamentalAnalyzer:
             except Exception as e:
                 print(f"获取估值数据时出错: {e}")
             
+            # 添加市场表现指标（中国股票）
+            market_ratios = self._calculate_market_performance_ratios()
+            ratios.update(market_ratios)
+            
             self.ratios = ratios
             
             print("关键财务比率:")
             for ratio_name, ratio_value in ratios.items():
-                if '率' in ratio_name or 'ROE' in ratio_name or 'ROA' in ratio_name:
-                    if ratio_name in ['PE', 'PB']:
-                        print(f"  {ratio_name}: {ratio_value:.2f}")
-                    else:
-                        print(f"  {ratio_name}: {ratio_value:.2f}%")
+                if ('率' in ratio_name or 'ROE' in ratio_name or 'ROA' in ratio_name or 'Growth' in ratio_name or 'Yield' in ratio_name or 'Volatility' in ratio_name or 'Change' in ratio_name) and ratio_name not in ['PE', 'PB', '流动比率', '速动比率', 'Beta', 'Sharpe Ratio']:
+                    print(f"  {ratio_name}: {ratio_value:.2f}%")
                 else:
                     print(f"  {ratio_name}: {ratio_value:.2f}")
             
@@ -845,39 +1198,68 @@ class FundamentalAnalyzer:
                 print(f"  - {risk}")
     
     def _calculate_financial_health_score(self):
-        """计算财务健康度评分"""
+        """计算财务健康度评分（更新版，包含新增指标）"""
         score = 0
         max_score = 100
         
         if not self.ratios:
             return score
         
-        # 盈利能力评分 (30分)
+        # 盈利能力评分 (25分)
         if 'ROE' in self.ratios:
             roe = self.ratios['ROE']
             if roe > 15:
-                score += 15
-            elif roe > 10:
                 score += 10
+            elif roe > 10:
+                score += 8
             elif roe > 5:
                 score += 5
         
         if '净利率' in self.ratios:
             net_margin = self.ratios['净利率']
             if net_margin > 10:
-                score += 15
-            elif net_margin > 5:
                 score += 10
+            elif net_margin > 5:
+                score += 8
             elif net_margin > 0:
                 score += 5
         
-        # 偿债能力评分 (25分)
+        # 新增：现金流质量评分 (5分)
+        if 'Operating CF to Net Income' in self.ratios:
+            cf_quality = self.ratios['Operating CF to Net Income']
+            if cf_quality > 120:
+                score += 5
+            elif cf_quality > 90:
+                score += 3
+            elif cf_quality > 60:
+                score += 1
+        
+        # 成长性评分 (15分)
+        if 'Revenue Growth' in self.ratios:
+            revenue_growth = self.ratios['Revenue Growth']
+            if revenue_growth > 15:
+                score += 8
+            elif revenue_growth > 5:
+                score += 5
+            elif revenue_growth > 0:
+                score += 3
+        
+        if 'Net Income Growth' in self.ratios:
+            income_growth = self.ratios['Net Income Growth']
+            if income_growth > 20:
+                score += 7
+            elif income_growth > 10:
+                score += 5
+            elif income_growth > 0:
+                score += 3
+        
+        # 偿债能力评分 (20分)
         if '资产负债率' in self.ratios:
             debt_ratio = self.ratios['资产负债率']
             if debt_ratio < 30:
-                score += 15
-            elif debt_ratio < 50:
                 score += 10
+            elif debt_ratio < 50:
+                score += 8
             elif debt_ratio < 70:
                 score += 5
         
@@ -890,43 +1272,80 @@ class FundamentalAnalyzer:
             elif current_ratio > 1:
                 score += 5
         
-        # 估值合理性评分 (25分)
+        # 估值合理性评分 (15分)
         if 'PE' in self.ratios:
             pe = self.ratios['PE']
             if 0 < pe < 15:
-                score += 15
+                score += 8
             elif pe < 25:
-                score += 10
+                score += 6
             elif pe < 35:
-                score += 5
+                score += 3
         
         if 'PB' in self.ratios:
             pb = self.ratios['PB']
             if 0 < pb < 1.5:
-                score += 10
+                score += 7
             elif pb < 3:
-                score += 8
-            elif pb < 5:
                 score += 5
+            elif pb < 5:
+                score += 3
         
-        # 营运能力评分 (20分)
+        # 营运能力评分 (10分)
         if 'ROA' in self.ratios:
             roa = self.ratios['ROA']
             if roa > 8:
-                score += 10
-            elif roa > 5:
-                score += 8
-            elif roa > 2:
                 score += 5
+            elif roa > 5:
+                score += 3
+            elif roa > 2:
+                score += 1
         
         if '存货周转率' in self.ratios:
             inventory_turnover = self.ratios['存货周转率']
             if inventory_turnover > 6:
-                score += 10
-            elif inventory_turnover > 4:
-                score += 8
-            elif inventory_turnover > 2:
                 score += 5
+            elif inventory_turnover > 4:
+                score += 3
+            elif inventory_turnover > 2:
+                score += 1
+        
+        # 资产质量评分 (10分)
+        asset_quality_bonus = 0
+        
+        # 商誉占比低更好
+        if 'Goodwill Ratio' in self.ratios:
+            goodwill_ratio = self.ratios['Goodwill Ratio']
+            if goodwill_ratio < 5:
+                asset_quality_bonus += 3
+            elif goodwill_ratio < 15:
+                asset_quality_bonus += 2
+            elif goodwill_ratio < 30:
+                asset_quality_bonus += 1
+        else:
+            asset_quality_bonus += 3  # 没有商誉也是好事
+        
+        # 无形资产比例适中
+        if 'Intangible Assets Ratio' in self.ratios:
+            intangible_ratio = self.ratios['Intangible Assets Ratio']
+            if intangible_ratio < 20:
+                asset_quality_bonus += 2
+            elif intangible_ratio < 40:
+                asset_quality_bonus += 1
+        else:
+            asset_quality_bonus += 2
+        
+        score += min(asset_quality_bonus, 10)
+        
+        # 市场风险评分 (5分) - 低风险获得更高分数
+        if 'Volatility' in self.ratios:
+            volatility = self.ratios['Volatility']
+            if volatility < 20:
+                score += 5
+            elif volatility < 30:
+                score += 3
+            elif volatility < 50:
+                score += 1
         
         return min(score, max_score)
     
@@ -949,7 +1368,7 @@ class FundamentalAnalyzer:
             return "不推荐 - 财务状况堪忧"
     
     def _identify_risks(self):
-        """识别投资风险"""
+        """识别投资风险（更新版，包含新增指标风险评估）"""
         risks = []
         
         if not self.ratios:
@@ -961,6 +1380,27 @@ class FundamentalAnalyzer:
         
         if '净利率' in self.ratios and self.ratios['净利率'] < 0:
             risks.append("公司处于亏损状态")
+        
+        # 成长性风险
+        if 'Revenue Growth' in self.ratios and self.ratios['Revenue Growth'] < -5:
+            risks.append("营收增长率为负，业务可能萎缩")
+        
+        if 'Net Income Growth' in self.ratios and self.ratios['Net Income Growth'] < -10:
+            risks.append("净利润大幅下滑，盈利恶化")
+        
+        # 现金流质量风险
+        if 'Operating CF to Net Income' in self.ratios and self.ratios['Operating CF to Net Income'] < 50:
+            risks.append("经营现金流质量较差，可能存在利润操纵")
+        
+        if 'Free Cash Flow' in self.ratios and self.ratios['Free Cash Flow'] < 0:
+            risks.append("自由现金流为负，资本支出压力大")
+        
+        # 资产质量风险
+        if 'Goodwill Ratio' in self.ratios and self.ratios['Goodwill Ratio'] > 30:
+            risks.append("商誉占比过高，存在减值风险")
+        
+        if 'Intangible Assets Ratio' in self.ratios and self.ratios['Intangible Assets Ratio'] > 50:
+            risks.append("无形资产占比过高，资产质量存疑")
         
         # 偿债能力风险
         if '资产负债率' in self.ratios and self.ratios['资产负债率'] > 70:
@@ -975,6 +1415,17 @@ class FundamentalAnalyzer:
         
         if 'PB' in self.ratios and self.ratios['PB'] > 10:
             risks.append("市净率过高，估值偏贵")
+        
+        # 市场风险
+        if 'Volatility' in self.ratios and self.ratios['Volatility'] > 50:
+            risks.append("股价波动率过高，投资风险较大")
+        
+        if 'Beta' in self.ratios and self.ratios['Beta'] > 2:
+            risks.append("Beta系数过高，系统性风险敏感度大")
+        
+        # 股息风险（对于美股）
+        if 'Payout Ratio' in self.ratios and self.ratios['Payout Ratio'] > 100:
+            risks.append("派息比率超过100%，股息可持续性存疑")
         
         return risks
     
