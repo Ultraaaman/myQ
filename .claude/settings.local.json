@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Read(/D:\\usr/**)"
+      "Read(/D:\\usr/**)",
+      "Bash(py quantlib/fundamental/test_refactored.py)"
     ],
     "deny": [],
     "ask": []
