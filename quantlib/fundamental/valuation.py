@@ -134,9 +134,219 @@ class DCFValuationModel:
     def _calculate_cn_dcf(self, financial_data, company_info, 
                          growth_years, terminal_growth, discount_rate):
         """计算中国股票DCF估值"""
-        # 中国股票DCF估值的简化实现
-        # 由于akshare数据结构不同，这里提供基础框架
-        print("中国股票DCF估值功能开发中...")
+        try:
+            # 获取财务指标数据
+            if 'indicators' not in financial_data:
+                print("无法获取中国股票财务指标数据")
+                return None
+            
+            indicators = financial_data['indicators']
+            if indicators.empty:
+                print("财务指标数据为空")
+                return None
+            
+            # 按日期排序，确保最新数据在最后用于取最新数据
+            indicators['日期'] = pd.to_datetime(indicators['日期'])
+            indicators = indicators.sort_values('日期', ascending=True)
+            latest = indicators.iloc[-1]
+            
+            # 获取每股经营现金流
+            ocf_per_share = latest.get('每股经营性现金流(元)', 0)
+            if ocf_per_share <= 0:
+                print("无法获取有效的每股经营现金流数据")
+                return None
+            
+            # 获取每股收益（用于估算增长率）
+            eps = latest.get('摊薄每股收益(元)', 0)
+            
+            print(f"基础数据:")
+            print(f"  每股经营现金流: {ocf_per_share:.2f} 元")
+            print(f"  每股收益: {eps:.2f} 元")
+            
+            # 计算历史现金流增长率（传入降序排列的数据）
+            indicators_desc = indicators.sort_values('日期', ascending=False)
+            historical_growth = self._calculate_cn_historical_cf_growth(indicators_desc)
+            if historical_growth is not None:
+                print(f"  历史现金流增长率: {historical_growth:.1f}%")
+            
+            # 设定增长率（基于历史增长率调整）
+            if historical_growth and abs(historical_growth) < 50:  # 排除异常值
+                print(f"historical growth {historical_growth}")
+                # 使用历史增长率的70%作为预测增长率（更保守）
+                base_growth = historical_growth * 0.7
+            else:
+                # 默认增长率
+                base_growth = 8.0
+            
+            # 设定递减的增长率（更现实）
+            growth_rates = []
+            for i in range(growth_years):
+                year_growth = base_growth * ((0.8) ** i)  # 逐年递减
+                growth_rates.append(max(year_growth, terminal_growth))  # 不低于永续增长率
+            
+            print(f"\nDCF假设:")
+            print(f"  预测期: {growth_years} 年")
+            print(f"  年增长率: {[f'{g:.1f}%' for g in growth_rates]}")
+            print(f"  永续增长率: {terminal_growth}%")
+            print(f"  折现率(WACC): {discount_rate}%")
+            
+            # 预测未来现金流（每股）
+            future_cf_per_share = []
+            base_cf = ocf_per_share
+            
+            for i, growth_rate in enumerate(growth_rates):
+                if i == 0:
+                    projected_cf = base_cf * (1 + growth_rate/100)
+                else:
+                    projected_cf = future_cf_per_share[-1] * (1 + growth_rate/100)
+                future_cf_per_share.append(projected_cf)
+                print(f"    第{i+1}年每股现金流: {projected_cf:.2f} 元 (增长率: {growth_rate:.1f}%)")
+            
+            # 计算预测期现值（每股）
+            pv_future_cf_per_share = []
+            for i, cf in enumerate(future_cf_per_share):
+                pv = cf / ((1 + discount_rate/100) ** (i + 1))
+                pv_future_cf_per_share.append(pv)
+            
+            # 计算终值（每股）
+            terminal_cf = future_cf_per_share[-1] * (1 + terminal_growth/100)
+            terminal_value_per_share = terminal_cf / (discount_rate/100 - terminal_growth/100)
+            pv_terminal_value_per_share = terminal_value_per_share / ((1 + discount_rate/100) ** growth_years)
+            
+            # 每股内在价值
+            intrinsic_value_per_share = sum(pv_future_cf_per_share) + pv_terminal_value_per_share
+            
+            print(f"\nDCF计算结果:")
+            print(f"  预测期现金流现值: {sum(pv_future_cf_per_share):.2f} 元/股")
+            print(f"  终值: {terminal_value_per_share:.2f} 元/股")
+            print(f"  终值现值: {pv_terminal_value_per_share:.2f} 元/股")
+            print(f"  每股内在价值: {intrinsic_value_per_share:.2f} 元")
+            
+            # 尝试获取当前股价进行比较
+            current_price = None
+            upside_potential = None
+            
+            try:
+                # 方法1：如果有PE数据，可以估算当前价格
+                if eps > 0:
+                    # 尝试获取当前股价（通过akshare）
+                    try:
+                        import akshare as ak
+                        stock_hist = ak.stock_zh_a_hist(symbol=self.symbol, period="daily", adjust="")
+                        if not stock_hist.empty:
+                            current_price = float(stock_hist.iloc[-1]['收盘'])
+                    except:
+                        pass
+                
+                if current_price:
+                    upside_potential = (intrinsic_value_per_share / current_price - 1) * 100
+                    print(f"  当前股价: {current_price:.2f} 元")
+                    print(f"  上涨空间: {upside_potential:+.1f}%")
+                    
+                    # 安全边际分析
+                    margin_of_safety = (1 - current_price / intrinsic_value_per_share) * 100
+                    print(f"  安全边际: {margin_of_safety:.1f}%")
+                else:
+                    print(f"  无法获取当前股价，请手动比较")
+                    
+            except Exception as e:
+                print(f"  获取股价时出错: {e}")
+            
+            # 敏感性分析
+            print(f"\n敏感性分析:")
+            print(f"  折现率变动±1%对内在价值的影响:")
+            
+            for rate_change in [-1, 1]:
+                new_rate = discount_rate + rate_change
+                if new_rate > terminal_growth:  # 确保折现率大于永续增长率
+                    # 重新计算终值现值
+                    new_terminal_value = terminal_cf / (new_rate/100 - terminal_growth/100)
+                    new_pv_terminal = new_terminal_value / ((1 + new_rate/100) ** growth_years)
+                    
+                    # 重新计算预测期现值
+                    new_pv_cf = sum([cf / ((1 + new_rate/100) ** (i + 1)) for i, cf in enumerate(future_cf_per_share)])
+                    new_intrinsic = new_pv_cf + new_pv_terminal
+                    
+                    change_pct = (new_intrinsic / intrinsic_value_per_share - 1) * 100
+                    print(f"    折现率{new_rate:.1f}%: {new_intrinsic:.2f} 元/股 ({change_pct:+.1f}%)")
+            
+            return {
+                'intrinsic_value_per_share': intrinsic_value_per_share,
+                'value_per_share': intrinsic_value_per_share,  # 兼容性
+                'current_price': current_price,
+                'upside_potential': upside_potential,
+                'terminal_value_per_share': terminal_value_per_share,
+                'pv_operating_cf': sum(pv_future_cf_per_share),
+                'pv_terminal_value': pv_terminal_value_per_share,
+                'growth_rates': growth_rates,
+                'discount_rate': discount_rate,
+                'terminal_growth': terminal_growth
+            }
+            
+        except Exception as e:
+            print(f"中国股票DCF估值计算失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _calculate_cn_historical_cf_growth(self, indicators):
+        """计算中国股票历史现金流增长率
+        
+        Args:
+            indicators: 按日期降序排列的财务指标DataFrame（最新数据在前）
+                       数据频率：季度报告，每年4期（Q1、Q2、Q3、Q4）
+        """
+        try:
+            # 获取每股经营现金流数据
+            cf_column = '每股经营性现金流(元)'
+            if cf_column not in indicators.columns:
+                return None
+            
+            # 获取有效的现金流数据（非空且大于0）
+            valid_data = indicators[indicators[cf_column].notna() & (indicators[cf_column] > 0)]
+            
+            if len(valid_data) < 8:  # 至少需要8期数据（2年，每年4个季度）来计算增长率
+                print(f"  可用现金流数据不足: {len(valid_data)} 期")
+                return None
+            
+            # 财务数据是季度报告，每年4期，取最近12期数据（3年）
+            recent_data = valid_data.head(min(13, len(valid_data)))  # 最多13期，包含当前期
+            
+            print(f"  用于计算增长率的数据期数: {len(recent_data)}")
+            
+            # 计算同比增长率（年度对比：第i期 vs 第i+4期，即同期去年对比）
+            growth_rates = []
+            
+            for i in range(len(recent_data) - 4):  # 至少需要间隔4期来计算年度增长率
+                current_cf = recent_data.iloc[i][cf_column]
+                previous_cf = recent_data.iloc[i + 4][cf_column]  # 同期去年数据（4个季度前）
+                
+                if previous_cf > 0:
+                    growth_rate = (current_cf / previous_cf - 1) * 100
+                    
+                    # 排除异常值（增长率在-80%到+200%之间比较合理）
+                    if -80 <= growth_rate <= 200:
+                        growth_rates.append(growth_rate)
+                        print(f"    第{i}期 vs 第{i+4}期: {growth_rate:.1f}%")
+            
+            if not growth_rates:
+                print("  没有有效的增长率数据")
+                return None
+            
+            # 计算加权平均增长率（近期数据权重更高）
+            weights = [1.0 / (i + 1) for i in range(len(growth_rates))]  # 近期权重更大
+            weighted_growth = np.average(growth_rates, weights=weights)
+            
+            print(f"  各期增长率: {[f'{g:.1f}%' for g in growth_rates]}")
+            print(f"  加权平均增长率: {weighted_growth:.1f}%")
+            
+            return weighted_growth
+                
+        except Exception as e:
+            print(f"计算历史现金流增长率失败: {e}")
+            import traceback
+            traceback.print_exc()
+        
         return None
     
     def _calculate_historical_cf_growth(self, cash_flow):
@@ -187,8 +397,24 @@ class ComparativeValuationModel:
         print("相对估值分析")
         print('='*60)
         
-        if not peer_comparison or peer_comparison.empty:
+        # 检查peer_comparison数据的有效性
+        if peer_comparison is None:
             print("缺少同行对比数据")
+            return None
+        
+        # 处理不同类型的peer_comparison数据
+        if hasattr(peer_comparison, 'empty'):
+            # DataFrame类型
+            if peer_comparison.empty:
+                print("同行对比数据为空")
+                return None
+        elif isinstance(peer_comparison, dict):
+            # 字典类型，检查是否为空
+            if not peer_comparison:
+                print("同行对比数据为空")
+                return None
+        else:
+            print(f"不支持的peer_comparison数据类型: {type(peer_comparison)}")
             return None
         
         try:
@@ -217,6 +443,11 @@ class ComparativeValuationModel:
     
     def _calculate_pe_relative_valuation(self, target_ratios, peer_comparison):
         """PE相对估值"""
+        # 确保peer_comparison是DataFrame
+        if not hasattr(peer_comparison, 'columns'):
+            print("PE相对估值需要DataFrame格式的同行对比数据")
+            return None
+            
         if 'PE' not in peer_comparison.columns or 'PE' not in target_ratios:
             return None
         
@@ -241,6 +472,11 @@ class ComparativeValuationModel:
     
     def _calculate_pb_relative_valuation(self, target_ratios, peer_comparison):
         """PB相对估值"""
+        # 确保peer_comparison是DataFrame
+        if not hasattr(peer_comparison, 'columns'):
+            print("PB相对估值需要DataFrame格式的同行对比数据")
+            return None
+            
         if 'PB' not in peer_comparison.columns or 'PB' not in target_ratios:
             return None
         

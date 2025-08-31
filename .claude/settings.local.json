@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python:*)",
       "Read(/D:\\usr/**)",
-      "Bash(py quantlib/fundamental/test_refactored.py)"
+      "Bash(py quantlib/fundamental/test_refactored.py)",
+      "mcp__ide__executeCode"
     ],
     "deny": [],
     "ask": []
