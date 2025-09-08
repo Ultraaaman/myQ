@@ -6,6 +6,7 @@
 - 震荡指标：RSI、KDJ、威廉指标等  
 - 成交量指标：OBV、成交量价格趋势等
 - 支撑阻力：关键价位分析
+- 数据源：支持美股(Yahoo Finance)和A股(Akshare)数据
 """
 
 from .base import TechnicalIndicator
@@ -13,13 +14,29 @@ from .trend import TrendIndicators
 from .oscillator import OscillatorIndicators
 from .volume import VolumeIndicators
 from .analyzer import TechnicalAnalyzer
+from .data_sources import (
+    TechnicalDataSourceFactory,
+    TechnicalDataManager,
+    YahooFinanceDataSource,
+    AkshareDataSource,
+    get_stock_data,
+    get_multiple_stocks_data,
+    get_a_share_data
+)
 
 __all__ = [
     'TechnicalIndicator',
     'TrendIndicators', 
     'OscillatorIndicators',
     'VolumeIndicators',
-    'TechnicalAnalyzer'
+    'TechnicalAnalyzer',
+    'TechnicalDataSourceFactory',
+    'TechnicalDataManager',
+    'YahooFinanceDataSource',
+    'AkshareDataSource',
+    'get_stock_data',
+    'get_multiple_stocks_data',
+    'get_a_share_data'
 ]
 
 __version__ = '1.0.0'
