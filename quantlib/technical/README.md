@@ -1,6 +1,6 @@
 # 技术指标分析模块 (Technical Analysis Module)
 
-quantlib技术指标模块提供了全面的技术分析工具，包括趋势指标、震荡指标、成交量指标等，适用于股票、期货、外汇等金融市场的技术分析。
+quantlib技术指标模块提供了全面的技术分析工具，包括趋势指标、震荡指标、成交量指标等，适用于股票、期货、外汇等金融市场的技术分析。模块内置多种数据源支持，可直接获取美股（Yahoo Finance）和A股（Akshare）的历史价格数据，实现一站式技术分析解决方案。
 
 ## 📁 模块结构
 
@@ -12,12 +12,44 @@ quantlib/technical/
 ├── oscillator.py       # 震荡指标
 ├── volume.py           # 成交量指标
 ├── analyzer.py         # 综合分析器
+├── data_sources.py     # 数据源管理（支持美股、A股数据获取）
 └── README.md           # 文档说明
 ```
 
 ## 🚀 快速开始
 
-### 基本用法
+### 数据获取与分析
+
+```python
+from quantlib.technical import (
+    TechnicalAnalyzer, 
+    get_stock_data, 
+    get_a_share_data,
+    TechnicalDataManager
+)
+
+# 方法一：直接获取美股数据进行分析
+us_data = get_stock_data('AAPL', market='US', period='1y')
+analyzer = TechnicalAnalyzer(us_data)
+signal, strength, _ = analyzer.get_consensus_signal()
+print(f"AAPL 综合信号: {signal}, 强度: {strength}")
+
+# 方法二：获取A股数据进行分析
+a_share_data = get_a_share_data('000001', period='1y')  # 平安银行
+analyzer = TechnicalAnalyzer(a_share_data)
+signal, strength, _ = analyzer.get_consensus_signal()
+print(f"平安银行 综合信号: {signal}, 强度: {strength}")
+
+# 方法三：使用数据管理器批量获取
+manager = TechnicalDataManager()
+stocks_data = manager.load_multiple_stocks(['AAPL', 'GOOGL'], market='US')
+for symbol, data in stocks_data.items():
+    analyzer = TechnicalAnalyzer(data)
+    signal, strength, _ = analyzer.get_consensus_signal()
+    print(f"{symbol}: 信号={signal}, 强度={strength}")
+```
+
+### 传统用法（自备数据）
 
 ```python
 import pandas as pd
@@ -51,6 +83,205 @@ print(report)
 
 # 绘制技术分析图表
 analyzer.plot_analysis()
+```
+
+## 📡 数据源管理 (Data Sources)
+
+技术分析模块内置了多种数据源支持，可以轻松获取美股、A股的历史价格数据。
+
+### 支持的数据源
+
+- **Yahoo Finance**: 美股数据（需要安装 `yfinance`）
+- **Akshare**: A股数据（需要安装 `akshare`）
+
+### 安装依赖
+
+```bash
+# 美股数据支持
+pip install yfinance
+
+# A股数据支持  
+pip install akshare
+```
+
+### 基本使用
+
+#### 1. 便捷函数
+
+```python
+from quantlib.technical import get_stock_data, get_a_share_data, get_multiple_stocks_data
+
+# 获取美股数据
+apple_data = get_stock_data('AAPL', market='US', period='1y')
+
+# 获取A股数据
+ping_an_data = get_a_share_data('000001', period='6mo')  # 平安银行
+
+# 批量获取美股数据
+us_stocks = get_multiple_stocks_data(['AAPL', 'GOOGL', 'TSLA'], market='US')
+
+# 批量获取A股数据
+a_stocks = get_multiple_stocks_data(['000001', '600519', '000858'], market='CN')
+
+# 获取沪深300指数数据
+csi300_data = get_csi300_index(period='1y')  # 1年沪深300数据
+```
+
+#### 2. 数据管理器
+
+```python
+from quantlib.technical import TechnicalDataManager
+
+# 创建数据管理器
+manager = TechnicalDataManager()
+
+# 加载单只股票（支持缓存）
+data = manager.load_stock_data('AAPL', market='US', period='1y', use_cache=True)
+
+# 批量加载多只股票
+stocks_data = manager.load_multiple_stocks(['AAPL', 'MSFT', 'GOOGL'], market='US')
+
+# 清空缓存
+manager.clear_cache()
+
+# 获取A股热门股票列表
+popular_stocks = manager.get_a_share_popular_stocks()
+print("A股热门股票:", popular_stocks)
+```
+
+#### 3. 直接使用数据源类
+
+```python
+from quantlib.technical.data_sources import YahooFinanceDataSource, AkshareDataSource
+
+# Yahoo Finance数据源
+us_source = YahooFinanceDataSource('AAPL')
+apple_data = us_source.get_historical_data(period='1y', interval='1d')
+
+# Akshare数据源  
+cn_source = AkshareDataSource('000001')
+ping_an_data = cn_source.get_historical_data(period='1y', interval='daily')
+```
+
+### 数据格式
+
+所有数据源返回的数据都会标准化为统一格式：
+
+```python
+# 标准化后的数据列
+columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+
+# 示例数据
+print(data.head())
+#         date   open   high    low  close    volume
+# 0 2023-01-03  125.0  126.5  124.2  125.8  50000000
+# 1 2023-01-04  125.8  127.2  125.0  126.1  45000000
+```
+
+### 参数说明
+
+#### period（时间周期）
+- `'1y'`: 1年（默认）
+- `'6mo'`: 6个月
+- `'3mo'`: 3个月
+- `'1mo'`: 1个月
+- `'max'`: 最大可获取范围
+
+#### interval（数据间隔）
+- **美股**: `'1d'`（日线）, `'1h'`（小时线）, `'1m'`（分钟线）
+- **A股**: `'daily'`（日线）
+
+### A股股票代码格式
+
+A股股票需要使用6位数字代码：
+
+```python
+# 正确的A股代码格式
+codes = [
+    '000001',  # 平安银行（深圳主板）
+    '000002',  # 万科A
+    '600519',  # 贵州茅台（上海主板）
+    '002415',  # 海康威视（深圳中小板）
+    '300750'   # 宁德时代（深圳创业板）
+]
+
+# 获取数据
+for code in codes:
+    data = get_a_share_data(code)
+    if data is not None:
+        print(f"{code}: 获取了 {len(data)} 条记录")
+```
+
+### 沪深300指数数据
+
+提供了获取沪深300指数数据的功能，主要用于大盘基准对比：
+
+```python
+from quantlib.technical import get_csi300_index
+
+# 获取沪深300数据
+csi300_data = get_csi300_index(period='1y')     # 1年（默认）
+
+# 用于大盘对比
+from quantlib.visualization import CandlestickChart
+stock_data = get_stock_data('000001', market='CN', period='1y')
+
+chart = CandlestickChart(stock_data)
+chart.add_benchmark(csi300_data, name="沪深300", color="gray")
+chart.plot().show()
+```
+
+**支持的时间周期**: `'1mo'`, `'3mo'`, `'6mo'`, `'1y'`, `'5y'`
+
+### 错误处理
+
+```python
+# 数据获取失败时的处理
+data = get_stock_data('INVALID_SYMBOL')
+if data is None:
+    print("数据获取失败，请检查股票代码")
+else:
+    print(f"成功获取 {len(data)} 条记录")
+
+# 沪深300数据获取错误处理
+try:
+    csi300_data = get_csi300_index(period='1y')
+    if csi300_data is not None:
+        print(f"沪深300数据获取成功: {len(csi300_data)} 条记录")
+    else:
+        print("沪深300数据获取失败")
+except Exception as e:
+    print(f"沪深300数据获取异常: {e}")
+```
+
+### 数据质量检查
+
+```python
+# 检查数据完整性
+def check_data_quality(data):
+    if data is None or data.empty:
+        return False
+    
+    # 检查必要列
+    required_columns = ['date', 'open', 'high', 'low', 'close']
+    if not all(col in data.columns for col in required_columns):
+        return False
+    
+    # 检查数据空值
+    if data[required_columns].isnull().any().any():
+        print("警告: 数据包含空值")
+    
+    # 检查价格逻辑性
+    invalid_prices = (data['high'] < data['low']) | (data['high'] < data['close']) | (data['low'] > data['close'])
+    if invalid_prices.any():
+        print(f"警告: 发现 {invalid_prices.sum()} 条价格异常记录")
+    
+    return True
+
+# 使用示例
+data = get_stock_data('AAPL')
+if check_data_quality(data):
+    analyzer = TechnicalAnalyzer(data)
 ```
 
 ## 📊 趋势指标 (Trend Indicators)

@@ -202,6 +202,49 @@ class AkshareDataSource(BaseDataSource):
         except Exception as e:
             print(f"获取股票列表失败: {e}")
             return None
+    
+    def get_csi300_data(self, period="1y"):
+        """获取沪深300指数数据"""
+        if not AKSHARE_AVAILABLE:
+            raise ImportError("需要安装akshare: pip install akshare")
+            
+        try:
+            # 获取沪深300指数历史数据
+            data = ak.stock_zh_index_daily(symbol="sh000300")
+            
+            if data.empty:
+                print("警告: 沪深300指数未获取到数据")
+                return None
+            
+            # 根据period筛选数据
+            if period and period != "max":
+                end_date = pd.Timestamp.now()
+                if period == "1y":
+                    start_date = end_date - pd.DateOffset(years=1)
+                elif period == "6mo":
+                    start_date = end_date - pd.DateOffset(months=6)
+                elif period == "3mo":
+                    start_date = end_date - pd.DateOffset(months=3)
+                elif period == "1mo":
+                    start_date = end_date - pd.DateOffset(months=1)
+                elif period == "5y":
+                    start_date = end_date - pd.DateOffset(years=5)
+                else:
+                    start_date = None
+                    
+                if start_date:
+                    data['date'] = pd.to_datetime(data['date'])
+                    data = data[data['date'] >= start_date]
+            
+            # 标准化数据格式
+            data = self.standardize_data(data)
+            
+            print(f"✓ 沪深300指数: 获取 {len(data)} 条记录")
+            return data
+            
+        except Exception as e:
+            print(f"× 沪深300指数: 获取数据失败 - {e}")
+            return None
 
 
 class TechnicalDataSourceFactory:
@@ -310,3 +353,9 @@ def get_multiple_stocks_data(symbols, market='US', period="1y", interval="1d"):
 def get_a_share_data(symbol, period="1y"):
     """便捷函数：获取A股数据"""
     return get_stock_data(symbol, market='CN', period=period, interval="daily")
+
+
+def get_csi300_index(period="1y"):
+    """便捷函数：获取沪深300指数数据"""
+    source = AkshareDataSource("000300")  # 虚拟symbol，实际使用sh000300
+    return source.get_csi300_data(period)

@@ -14,14 +14,13 @@ from .trend import TrendIndicators
 from .oscillator import OscillatorIndicators
 from .volume import VolumeIndicators
 from .analyzer import TechnicalAnalyzer
-from .data_sources import (
-    TechnicalDataSourceFactory,
-    TechnicalDataManager,
-    YahooFinanceDataSource,
-    AkshareDataSource,
+# 使用统一的市场数据接口
+from ..market_data import (
     get_stock_data,
     get_multiple_stocks_data,
-    get_a_share_data
+    get_csi300_index,
+    get_realtime_data,
+    get_company_info
 )
 
 __all__ = [
@@ -30,13 +29,11 @@ __all__ = [
     'OscillatorIndicators',
     'VolumeIndicators',
     'TechnicalAnalyzer',
-    'TechnicalDataSourceFactory',
-    'TechnicalDataManager',
-    'YahooFinanceDataSource',
-    'AkshareDataSource',
     'get_stock_data',
-    'get_multiple_stocks_data',
-    'get_a_share_data'
+    'get_multiple_stocks_data', 
+    'get_csi300_index',
+    'get_realtime_data',
+    'get_company_info'
 ]
 
 __version__ = '1.0.0'
