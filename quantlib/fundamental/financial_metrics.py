@@ -3,7 +3,12 @@
 """
 import pandas as pd
 import numpy as np
-import yfinance as yf
+
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
 
 try:
     import akshare as ak
@@ -426,6 +431,9 @@ class FinancialMetricsCalculator:
         ratios = {}
         
         try:
+            if not YFINANCE_AVAILABLE:
+                print(f"⚠ 跳过 {symbol}，需要安装 yfinance")
+                return {}
             ticker = yf.Ticker(symbol)
             hist_data = ticker.history(period="2y")
             

@@ -4,7 +4,12 @@
       "Bash(python:*)",
       "Read(/D:\\usr/**)",
       "Bash(py quantlib/fundamental/test_refactored.py)",
-      "mcp__ide__executeCode"
+      "mcp__ide__executeCode",
+      "WebSearch",
+      "Bash(conda activate:*)",
+      "Bash(call conda activate quant)",
+      "Bash(C:Users10442miniconda3envsquantpython.exe test_minute_data.py)",
+      "WebFetch(domain:akshare.akfamily.xyz)"
     ],
     "deny": [],
     "ask": []

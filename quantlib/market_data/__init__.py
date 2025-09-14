@@ -15,13 +15,24 @@
 from .base import BaseDataProvider, DataProviderFactory, DataCache
 from .providers import YahooFinanceProvider, AkshareProvider
 from .manager import (
-    MarketDataManager, 
+    MarketDataManager,
     get_data_manager,
     get_stock_data,
     get_multiple_stocks_data,
     get_csi300_index,
     get_realtime_data,
-    get_company_info
+    get_company_info,
+    get_a_share_minute_data,
+    get_multiple_a_share_minute_data,
+    get_order_book,
+    get_tick_data,
+    get_intraday_data
+)
+from .order_book_analyzer import (
+    OrderBookAnalyzer,
+    TickDataAnalyzer,
+    analyze_order_book,
+    analyze_tick_data
 )
 
 __all__ = [
@@ -40,10 +51,21 @@ __all__ = [
     
     # 便捷函数
     'get_stock_data',
-    'get_multiple_stocks_data', 
+    'get_multiple_stocks_data',
     'get_csi300_index',
     'get_realtime_data',
-    'get_company_info'
+    'get_company_info',
+    'get_a_share_minute_data',
+    'get_multiple_a_share_minute_data',
+    'get_order_book',
+    'get_tick_data',
+    'get_intraday_data',
+
+    # 订单簿分析
+    'OrderBookAnalyzer',
+    'TickDataAnalyzer',
+    'analyze_order_book',
+    'analyze_tick_data'
 ]
 
 __version__ = '1.0.0'

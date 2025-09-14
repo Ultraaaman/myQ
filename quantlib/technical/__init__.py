@@ -22,18 +22,32 @@ from ..market_data import (
     get_realtime_data,
     get_company_info
 )
+# 从market_data模块导入分钟级数据函数，保持向后兼容
+from ..market_data import (
+    get_a_share_minute_data,
+    get_multiple_a_share_minute_data
+)
+# 为了向后兼容，保留get_a_share_data别名
+from ..market_data import get_stock_data as _get_stock_data
+
+def get_a_share_data(symbol, period="1y"):
+    """便捷函数：获取A股数据（向后兼容）"""
+    return _get_stock_data(symbol, market='CN', period=period, interval="daily")
 
 __all__ = [
     'TechnicalIndicator',
-    'TrendIndicators', 
+    'TrendIndicators',
     'OscillatorIndicators',
     'VolumeIndicators',
     'TechnicalAnalyzer',
     'get_stock_data',
-    'get_multiple_stocks_data', 
+    'get_multiple_stocks_data',
     'get_csi300_index',
     'get_realtime_data',
-    'get_company_info'
+    'get_company_info',
+    'get_a_share_minute_data',
+    'get_multiple_a_share_minute_data',
+    'get_a_share_data'
 ]
 
 __version__ = '1.0.0'

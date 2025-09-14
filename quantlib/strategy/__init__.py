@@ -8,5 +8,58 @@
 - 策略组合管理
 """
 
-# 策略模块将在后续实现
+from .base import (
+    BaseStrategy,
+    SimpleMovingAverageStrategy,
+    Position,
+    TradingSignal,
+    SignalType,
+    OrderType
+)
+
+from .examples import (
+    MovingAverageCrossStrategy,
+    RSIStrategy,
+    BollingerBandsStrategy,
+    MACDStrategy,
+    MomentumStrategy,
+    MeanReversionStrategy,
+    MultiFactorStrategy,
+    create_ma_cross_strategy,
+    create_rsi_strategy,
+    create_bollinger_bands_strategy,
+    create_macd_strategy,
+    create_momentum_strategy,
+    create_mean_reversion_strategy,
+    create_multi_factor_strategy
+)
+
+__all__ = [
+    # 基础类
+    'BaseStrategy',
+    'SimpleMovingAverageStrategy',
+    'Position',
+    'TradingSignal',
+    'SignalType',
+    'OrderType',
+
+    # 策略示例
+    'MovingAverageCrossStrategy',
+    'RSIStrategy',
+    'BollingerBandsStrategy',
+    'MACDStrategy',
+    'MomentumStrategy',
+    'MeanReversionStrategy',
+    'MultiFactorStrategy',
+
+    # 便捷函数
+    'create_ma_cross_strategy',
+    'create_rsi_strategy',
+    'create_bollinger_bands_strategy',
+    'create_macd_strategy',
+    'create_momentum_strategy',
+    'create_mean_reversion_strategy',
+    'create_multi_factor_strategy'
+]
+
 __version__ = '1.0.0'

@@ -1,10 +1,25 @@
 """
 技术分析数据源模块 - 负责从不同来源获取股票历史价格和技术指标数据
+
+警告：此模块已弃用！
+请使用 quantlib.market_data 模块的统一接口。
+
+推荐替换：
+- get_a_share_minute_data -> quantlib.market_data.get_a_share_minute_data
+- get_multiple_a_share_minute_data -> quantlib.market_data.get_multiple_a_share_minute_data
+- get_stock_data -> quantlib.market_data.get_stock_data
 """
 import pandas as pd
 import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
+
+# 弃用警告
+warnings.warn(
+    "quantlib.technical.data_sources 模块已弃用，请使用 quantlib.market_data 模块的统一接口",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 # 尝试导入数据源库
 try:
@@ -47,12 +62,16 @@ class BaseDataSource:
             
         # 标准化列名
         column_mapping = {
-            'Date': 'date', '日期': 'date',
-            'Open': 'open', '开盘': 'open', 
+            # 日期时间相关
+            'Date': 'date', '日期': 'date', 'time': 'date', 'datetime': 'date', 'day': 'date',
+            # OHLC数据
+            'Open': 'open', '开盘': 'open',
             'High': 'high', '最高': 'high',
             'Low': 'low', '最低': 'low',
             'Close': 'close', '收盘': 'close',
+            # 成交量
             'Volume': 'volume', '成交量': 'volume', '成交手': 'volume',
+            # 其他
             'Adj Close': 'adj_close'
         }
         
@@ -85,7 +104,13 @@ class BaseDataSource:
         numeric_columns = ['open', 'high', 'low', 'close', 'volume']
         for col in numeric_columns:
             if col in data.columns:
-                data[col] = pd.to_numeric(data[col], errors='coerce')
+                # 特殊处理volume，可能包含非数字字符
+                if col == 'volume':
+                    # 移除可能的非数字字符并转换
+                    data[col] = data[col].astype(str).str.replace(',', '').str.replace(' ', '')
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                else:
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
         
         # 按日期排序
         if 'date' in data.columns and not data.empty:
@@ -131,37 +156,88 @@ class YahooFinanceDataSource(BaseDataSource):
 
 class AkshareDataSource(BaseDataSource):
     """Akshare数据源（A股）"""
-    
+
     def __init__(self, symbol):
         super().__init__(symbol, 'CN')
+
+    def _format_symbol_for_minute(self, symbol):
+        """格式化股票代码用于分钟级数据API
+
+        Args:
+            symbol: 原始股票代码 (如 '000001', 'sz000001', '600519', 'sh600519')
+
+        Returns:
+            str: 格式化后的代码 (如 'sz000001', 'sh600519')
+        """
+        # 如果已经有前缀，直接返回
+        if symbol.startswith(('sz', 'sh')):
+            return symbol
+
+        # 根据代码规则添加前缀
+        if symbol.startswith(('000', '001', '002', '003', '300')):
+            # 深圳交易所：主板000、001，中小板002，创业板300
+            return f"sz{symbol}"
+        elif symbol.startswith(('600', '601', '603', '605', '688')):
+            # 上海交易所：主板600、601、603、605，科创板688
+            return f"sh{symbol}"
+        else:
+            # 默认深圳交易所
+            return f"sz{symbol}"
         
     def get_historical_data(self, period="1y", interval="daily"):
         """获取A股历史数据"""
         if not AKSHARE_AVAILABLE:
             raise ImportError("需要安装akshare: pip install akshare")
-            
+
         try:
-            # akshare期间映射
-            period_mapping = {
-                "1y": None,  # 默认获取最近一年
-                "6mo": None,
-                "3mo": None,
-                "1mo": None
-            }
-            
-            # 获取历史数据，使用前复权
-            data = ak.stock_zh_a_hist(
-                symbol=self.symbol, 
-                period=interval, 
-                adjust="qfq"  # 前复权
-            )
+            # 判断是否为分钟级数据
+            minute_intervals = ["1min", "5min", "15min", "30min", "60min", "1m", "5m", "15m", "30m", "60m"]
+            is_minute_data = interval in minute_intervals
+
+            if is_minute_data:
+                # 分钟级数据处理
+                period_map = {
+                    "1min": "1", "1m": "1",
+                    "5min": "5", "5m": "5",
+                    "15min": "15", "15m": "15",
+                    "30min": "30", "30m": "30",
+                    "60min": "60", "60m": "60"
+                }
+
+                minute_period = period_map.get(interval, "1")
+                print(f"获取{minute_intervals}级别数据")
+                # 确保股票代码有交易所前缀
+                formatted_symbol = self._format_symbol_for_minute(self.symbol)
+
+                # 获取分钟级数据（近5个交易日）
+                data = ak.stock_zh_a_minute(
+                    symbol=formatted_symbol,
+                    period=minute_period,
+                    adjust="qfq"  # 前复权
+                )
+            else:
+                # 日线及以上数据
+                # akshare期间映射
+                period_mapping = {
+                    "1y": None,  # 默认获取最近一年
+                    "6mo": None,
+                    "3mo": None,
+                    "1mo": None
+                }
+
+                # 获取历史数据，使用前复权
+                data = ak.stock_zh_a_hist(
+                    symbol=self.symbol,
+                    period=interval,
+                    adjust="qfq"  # 前复权
+                )
             
             if data.empty:
                 print(f"警告: {self.symbol} 未获取到数据")
                 return None
             
-            # 根据period筛选数据
-            if period and period != "max":
+            # 根据period筛选数据（只对日线数据处理）
+            if not is_minute_data and period and period != "max":
                 end_date = pd.Timestamp.now()
                 if period == "1y":
                     start_date = end_date - pd.DateOffset(years=1)
@@ -173,11 +249,11 @@ class AkshareDataSource(BaseDataSource):
                     start_date = end_date - pd.DateOffset(months=1)
                 else:
                     start_date = None
-                    
+
                 if start_date:
                     data['日期'] = pd.to_datetime(data['日期'])
                     data = data[data['日期'] >= start_date]
-            
+
             # 标准化数据格式
             data = self.standardize_data(data)
             
@@ -359,3 +435,41 @@ def get_csi300_index(period="1y"):
     """便捷函数：获取沪深300指数数据"""
     source = AkshareDataSource("000300")  # 虚拟symbol，实际使用sh000300
     return source.get_csi300_data(period)
+
+
+def get_a_share_minute_data(symbol, interval="1min"):
+    """便捷函数：获取A股分钟级数据
+
+    Args:
+        symbol: 股票代码（如 '000001'）
+        interval: 分钟周期，支持 '1min', '5min', '15min', '30min', '60min'
+                 或简写 '1m', '5m', '15m', '30m', '60m'
+
+    Returns:
+        pandas.DataFrame: 分钟级K线数据
+
+    Note:
+        分钟级数据只能获取近5个交易日的数据（akshare限制）
+    """
+    return get_stock_data(symbol, market='CN', interval=interval)
+
+
+def get_multiple_a_share_minute_data(symbols, interval="1min"):
+    """便捷函数：批量获取A股分钟级数据
+
+    Args:
+        symbols: 股票代码列表
+        interval: 分钟周期
+
+    Returns:
+        dict: {股票代码: 数据DataFrame}
+    """
+    results = {}
+    for symbol in symbols:
+        try:
+            data = get_a_share_minute_data(symbol, interval)
+            if data is not None:
+                results[symbol] = data
+        except Exception as e:
+            print(f"获取 {symbol} 分钟级数据失败: {e}")
+    return results

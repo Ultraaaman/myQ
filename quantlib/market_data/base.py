@@ -52,12 +52,16 @@ class BaseDataProvider(ABC):
         
         # 标准化列名映射
         column_mapping = {
-            'Date': 'date', '日期': 'date', 'datetime': 'date',
+            # 日期时间相关
+            'Date': 'date', '日期': 'date', 'datetime': 'date', 'day': 'date', 'time': 'date',
+            # OHLC数据
             'Open': 'open', '开盘': 'open', 'OPEN': 'open',
-            'High': 'high', '最高': 'high', 'HIGH': 'high', 
+            'High': 'high', '最高': 'high', 'HIGH': 'high',
             'Low': 'low', '最低': 'low', 'LOW': 'low',
             'Close': 'close', '收盘': 'close', 'CLOSE': 'close',
+            # 成交量
             'Volume': 'volume', '成交量': 'volume', '成交手': 'volume', 'VOLUME': 'volume',
+            # 其他
             'Adj Close': 'adj_close', 'ADJ_CLOSE': 'adj_close'
         }
         
@@ -88,7 +92,13 @@ class BaseDataProvider(ABC):
         numeric_columns = ['open', 'high', 'low', 'close', 'volume']
         for col in numeric_columns:
             if col in data.columns:
-                data[col] = pd.to_numeric(data[col], errors='coerce')
+                # 特殊处理volume，可能包含非数字字符
+                if col == 'volume':
+                    # 移除可能的非数字字符并转换
+                    data[col] = data[col].astype(str).str.replace(',', '').str.replace(' ', '')
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                else:
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
         
         # 按日期排序
         if 'date' in data.columns and not data.empty:

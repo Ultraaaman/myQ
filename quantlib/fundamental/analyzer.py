@@ -1,4 +1,3 @@
-import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,7 +7,13 @@ import requests
 import warnings
 warnings.filterwarnings('ignore')
 
-# 尝试导入更多数据源
+# 尝试导入数据源
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
+
 try:
     import akshare as ak
     AKSHARE_AVAILABLE = True
@@ -36,6 +41,9 @@ class FundamentalAnalyzer:
         """加载公司基本数据"""
         try:
             if self.market == 'US':
+                if not YFINANCE_AVAILABLE:
+                    print("⚠ 需要安装 yfinance 库来获取美股数据: pip install yfinance")
+                    return False
                 self.ticker = yf.Ticker(self.symbol)
                 self.company_info = self.ticker.info
                 print(f"✓ 成功加载 {self.symbol} 的公司信息")
@@ -391,6 +399,8 @@ class FundamentalAnalyzer:
                     
                     # 计算beta（相对于SPY的beta）
                     try:
+                        if not YFINANCE_AVAILABLE:
+                            raise ImportError("yfinance not available")
                         spy = yf.Ticker("SPY")
                         spy_hist = spy.history(period="2y")
                         
@@ -951,6 +961,9 @@ class FundamentalAnalyzer:
         for symbol in all_symbols:
             try:
                 if self.market == 'US':
+                    if not YFINANCE_AVAILABLE:
+                        print(f"⚠ 跳过 {symbol}，需要安装 yfinance")
+                        continue
                     ticker = yf.Ticker(symbol)
                     info = ticker.info
                     

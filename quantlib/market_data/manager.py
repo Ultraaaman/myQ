@@ -182,6 +182,78 @@ class MarketDataManager:
         """获取支持的市场列表"""
         return DataProviderFactory.get_supported_markets()
 
+    def get_order_book(self, symbol: str, market: str = 'CN', depth: int = 5) -> Optional[Dict[str, Any]]:
+        """获取订单簿数据（买卖盘口）
+
+        Args:
+            symbol: 股票代码
+            market: 市场类型
+            depth: 档位深度，默认5档
+
+        Returns:
+            Dict包含买卖盘口数据
+        """
+        try:
+            provider = DataProviderFactory.create_provider(symbol, market)
+
+            # 检查provider是否支持订单簿数据
+            if hasattr(provider, 'get_order_book'):
+                return provider.get_order_book(depth=depth)
+            else:
+                print(f"{market}市场暂不支持订单簿数据")
+                return None
+
+        except Exception as e:
+            print(f"获取 {symbol} 订单簿数据失败: {e}")
+            return None
+
+    def get_tick_data(self, symbol: str, market: str = 'CN', trade_date: str = None) -> Optional[pd.DataFrame]:
+        """获取逐笔交易数据
+
+        Args:
+            symbol: 股票代码
+            market: 市场类型
+            trade_date: 交易日期，格式YYYYMMDD
+
+        Returns:
+            包含逐笔交易数据的DataFrame
+        """
+        try:
+            provider = DataProviderFactory.create_provider(symbol, market)
+
+            if hasattr(provider, 'get_tick_data'):
+                return provider.get_tick_data(trade_date=trade_date)
+            else:
+                print(f"{market}市场暂不支持逐笔数据")
+                return None
+
+        except Exception as e:
+            print(f"获取 {symbol} 逐笔数据失败: {e}")
+            return None
+
+    def get_intraday_data(self, symbol: str, market: str = 'CN') -> Optional[pd.DataFrame]:
+        """获取盘中交易明细数据
+
+        Args:
+            symbol: 股票代码
+            market: 市场类型
+
+        Returns:
+            包含盘中交易明细的DataFrame
+        """
+        try:
+            provider = DataProviderFactory.create_provider(symbol, market)
+
+            if hasattr(provider, 'get_intraday_data'):
+                return provider.get_intraday_data()
+            else:
+                print(f"{market}市场暂不支持盘中数据")
+                return None
+
+        except Exception as e:
+            print(f"获取 {symbol} 盘中数据失败: {e}")
+            return None
+
 
 # 创建全局数据管理器实例
 _global_manager = None
@@ -225,3 +297,104 @@ def get_company_info(symbol: str, market: str = 'US') -> Optional[Dict[str, Any]
     """便捷函数：获取公司信息"""
     manager = get_data_manager()
     return manager.get_company_info(symbol, market)
+
+
+# 分钟级数据便捷函数
+def get_a_share_minute_data(symbol: str, interval: str = "1min") -> Optional[pd.DataFrame]:
+    """便捷函数：获取A股分钟级数据
+
+    Args:
+        symbol: 股票代码（如 '000001'）
+        interval: 分钟周期，支持 '1min', '5min', '15min', '30min', '60min'
+                 或简写 '1m', '5m', '15m', '30m', '60m'
+
+    Returns:
+        pandas.DataFrame: 分钟级K线数据
+
+    Note:
+        分钟级数据只能获取近5个交易日的数据（akshare限制）
+    """
+    return get_stock_data(symbol, market='CN', interval=interval)
+
+
+def get_multiple_a_share_minute_data(symbols: List[str], interval: str = "1min") -> Dict[str, pd.DataFrame]:
+    """便捷函数：批量获取A股分钟级数据
+
+    Args:
+        symbols: 股票代码列表
+        interval: 分钟周期
+
+    Returns:
+        dict: {股票代码: 数据DataFrame}
+    """
+    return get_multiple_stocks_data(symbols, market='CN', interval=interval)
+
+
+# 订单簿数据便捷函数
+def get_order_book(symbol: str, market: str = 'CN', depth: int = 5) -> Optional[Dict[str, Any]]:
+    """便捷函数：获取订单簿数据（买卖盘口）
+
+    Args:
+        symbol: 股票代码（如 '000001'）
+        market: 市场类型，默认为A股
+        depth: 档位深度，默认5档
+
+    Returns:
+        Dict包含买卖盘口数据，包括：
+        - asks: 卖盘列表（价格从低到高）
+        - bids: 买盘列表（价格从高到低）
+        - spread: 买卖价差
+        - mid_price: 中间价格
+
+    Example:
+        order_book = get_order_book('000001')
+        print(f"最佳买价: {order_book['bids'][0]['price']}")
+        print(f"最佳卖价: {order_book['asks'][0]['price']}")
+        print(f"买卖价差: {order_book['spread']}")
+    """
+    manager = get_data_manager()
+    return manager.get_order_book(symbol, market, depth)
+
+
+def get_tick_data(symbol: str, market: str = 'CN', trade_date: str = None) -> Optional[pd.DataFrame]:
+    """便捷函数：获取逐笔交易数据
+
+    Args:
+        symbol: 股票代码（如 '000001'）
+        market: 市场类型，默认为A股
+        trade_date: 交易日期，格式YYYYMMDD，默认为今天
+
+    Returns:
+        DataFrame包含逐笔交易数据，包括：
+        - time: 交易时间
+        - price: 成交价格
+        - volume: 成交量
+        - side: 买卖方向 (buy/sell/neutral)
+        - amount: 成交金额
+
+    Example:
+        tick_data = get_tick_data('000001')
+        print(f"今日共{len(tick_data)}笔交易")
+        buy_volume = tick_data[tick_data['side']=='buy']['volume'].sum()
+        sell_volume = tick_data[tick_data['side']=='sell']['volume'].sum()
+    """
+    manager = get_data_manager()
+    return manager.get_tick_data(symbol, market, trade_date)
+
+
+def get_intraday_data(symbol: str, market: str = 'CN') -> Optional[pd.DataFrame]:
+    """便捷函数：获取盘中交易明细数据
+
+    Args:
+        symbol: 股票代码（如 '000001'）
+        market: 市场类型，默认为A股
+
+    Returns:
+        DataFrame包含盘中交易明细数据
+
+    Example:
+        intraday_data = get_intraday_data('000001')
+        print(f"盘中交易明细: {len(intraday_data)} 条记录")
+    """
+    manager = get_data_manager()
+    return manager.get_intraday_data(symbol, market)

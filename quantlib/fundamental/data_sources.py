@@ -1,12 +1,17 @@
 """
 数据源模块 - 负责从不同来源获取股票数据
 """
-import yfinance as yf
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
 
-# 尝试导入更多数据源
+# 尝试导入数据源
+try:
+    import yfinance as yf
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
+
 try:
     import akshare as ak
     AKSHARE_AVAILABLE = True
@@ -41,6 +46,9 @@ class YahooFinanceDataSource(BaseDataSource):
     def load_company_data(self):
         """加载美股公司基本数据"""
         try:
+            if not YFINANCE_AVAILABLE:
+                print(f"⚠ 需要安装 yfinance 库来获取美股数据: pip install yfinance")
+                return False
             self.ticker = yf.Ticker(self.symbol)
             self.company_info = self.ticker.info
             print(f"✓ 成功加载 {self.symbol} 的公司信息")

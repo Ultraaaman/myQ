@@ -16,11 +16,11 @@ from .technical import TechnicalChart
 from .volume import VolumeChart
 from .market import MarketChart
 from .utils import ChartUtils, ColorPalette
-from .themes import ChartTheme, DarkTheme, LightTheme
+from .themes import ChartTheme, DarkTheme, LightTheme, get_theme, list_themes
 
 __all__ = [
     'BaseChart',
-    'CandlestickChart', 
+    'CandlestickChart',
     'TechnicalChart',
     'VolumeChart',
     'MarketChart',
@@ -28,7 +28,9 @@ __all__ = [
     'ColorPalette',
     'ChartTheme',
     'DarkTheme',
-    'LightTheme'
+    'LightTheme',
+    'get_theme',
+    'list_themes'
 ]
 
 __version__ = '1.0.0'

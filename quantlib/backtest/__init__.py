@@ -8,5 +8,43 @@
 - 结果可视化
 """
 
-# 回测模块将在后续实现
+from .backtrader_engine import (
+    BacktraderEngine,
+    QuantlibStrategyAdapter,
+    BacktraderDataFeed,
+    create_backtrader_engine,
+    simple_backtest
+)
+
+from .zipline_engine import (
+    ZiplineEngine,
+    ZiplineStrategyAdapter,
+    create_zipline_engine,
+    simple_zipline_backtest
+)
+
+from .performance import (
+    PerformanceAnalyzer,
+    analyze_backtest_results
+)
+
+__all__ = [
+    # Backtrader引擎
+    'BacktraderEngine',
+    'QuantlibStrategyAdapter',
+    'BacktraderDataFeed',
+    'create_backtrader_engine',
+    'simple_backtest',
+
+    # Zipline引擎
+    'ZiplineEngine',
+    'ZiplineStrategyAdapter',
+    'create_zipline_engine',
+    'simple_zipline_backtest',
+
+    # 性能分析
+    'PerformanceAnalyzer',
+    'analyze_backtest_results'
+]
+
 __version__ = '1.0.0'
