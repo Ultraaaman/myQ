@@ -34,6 +34,45 @@ def get_a_share_data(symbol, period="1y"):
     """便捷函数：获取A股数据（向后兼容）"""
     return _get_stock_data(symbol, market='CN', period=period, interval="daily")
 
+# Wrapper functions for backward compatibility with strategy module
+def calculate_ma(data, period=20, ma_type='sma', price_column='close'):
+    """计算移动平均线"""
+    from .trend import MovingAverages
+    ma = MovingAverages(data, price_column)
+    results = ma.calculate([period])
+    if ma_type.lower() == 'sma':
+        return results[f'SMA_{period}']
+    else:
+        return results[f'EMA_{period}']
+
+def calculate_rsi(data, period=14, price_column='close'):
+    """计算RSI指标"""
+    from .oscillator import RSI
+    rsi = RSI(data, price_column)
+    results = rsi.calculate(period)
+    return results['RSI']
+
+def calculate_bollinger_bands(data, period=20, std_dev=2.0, price_column='close'):
+    """计算布林带"""
+    from .trend import BollingerBands
+    bb = BollingerBands(data, price_column)
+    results = bb.calculate(period, std_dev)
+    return results['Upper_Band'], results['Middle_Band'], results['Lower_Band']
+
+def calculate_macd(data, fast=12, slow=26, signal=9, price_column='close'):
+    """计算MACD指标"""
+    from .trend import MACD
+    macd = MACD(data, price_column)
+    results = macd.calculate(fast, slow, signal)
+    return results['MACD'], results['Signal'], results['Histogram']
+
+def calculate_stochastic(data, k_period=14, d_period=3, smooth_k=3):
+    """计算随机指标(KDJ)"""
+    from .oscillator import KDJ
+    kdj = KDJ(data)
+    results = kdj.calculate(k_period, d_period, smooth_k)
+    return results['K'], results['D']
+
 __all__ = [
     'TechnicalIndicator',
     'TrendIndicators',
@@ -47,7 +86,13 @@ __all__ = [
     'get_company_info',
     'get_a_share_minute_data',
     'get_multiple_a_share_minute_data',
-    'get_a_share_data'
+    'get_a_share_data',
+    # Backward compatibility functions
+    'calculate_ma',
+    'calculate_rsi',
+    'calculate_bollinger_bands',
+    'calculate_macd',
+    'calculate_stochastic'
 ]
 
 __version__ = '1.0.0'
