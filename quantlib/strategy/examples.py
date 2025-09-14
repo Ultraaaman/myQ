@@ -42,8 +42,8 @@ class MovingAverageCrossStrategy(BaseStrategy):
             df = self.data[symbol]
 
             # 计算移动平均线
-            short_ma = calculate_ma(df['close'], self.short_window)
-            long_ma = calculate_ma(df['close'], self.long_window)
+            short_ma = calculate_ma(df['close'], period=self.short_window)
+            long_ma = calculate_ma(df['close'], period=self.long_window)
 
             self.add_indicator(symbol, 'short_ma', short_ma)
             self.add_indicator(symbol, 'long_ma', long_ma)
@@ -140,7 +140,7 @@ class RSIStrategy(BaseStrategy):
             df = self.data[symbol]
 
             # 计算RSI
-            rsi = calculate_rsi(df['close'], self.rsi_period)
+            rsi = calculate_rsi(df['close'], period=self.rsi_period)
             self.add_indicator(symbol, 'rsi', rsi)
 
             # 生成买卖信号
@@ -232,7 +232,7 @@ class BollingerBandsStrategy(BaseStrategy):
 
             # 计算布林带
             bb_upper, bb_middle, bb_lower = calculate_bollinger_bands(
-                df['close'], self.period, self.std_dev
+                df['close'], period=self.period, std_dev=self.std_dev
             )
 
             self.add_indicator(symbol, 'bb_upper', bb_upper)
@@ -241,8 +241,24 @@ class BollingerBandsStrategy(BaseStrategy):
 
             # 生成交易信号
             price = df['close']
-            buy_signal = (price < bb_lower) & (price.shift(1) >= bb_lower.shift(1))
-            sell_signal = (price > bb_upper) & (price.shift(1) <= bb_upper.shift(1))
+
+            # 确保所有Series使用相同的索引
+            common_index = price.index.intersection(bb_lower.index).intersection(bb_upper.index)
+            price_aligned = price.loc[common_index]
+            bb_upper_aligned = bb_upper.loc[common_index]
+            bb_lower_aligned = bb_lower.loc[common_index]
+
+            # 重置索引以确保比较操作正常工作
+            price_aligned = price_aligned.reset_index(drop=True)
+            bb_upper_aligned = bb_upper_aligned.reset_index(drop=True)
+            bb_lower_aligned = bb_lower_aligned.reset_index(drop=True)
+
+            buy_signal = (price_aligned < bb_lower_aligned) & (price_aligned.shift(1) >= bb_lower_aligned.shift(1))
+            sell_signal = (price_aligned > bb_upper_aligned) & (price_aligned.shift(1) <= bb_upper_aligned.shift(1))
+
+            # 恢复原始索引
+            buy_signal.index = common_index
+            sell_signal.index = common_index
 
             self.add_indicator(symbol, 'bb_buy', buy_signal)
             self.add_indicator(symbol, 'bb_sell', sell_signal)
@@ -340,7 +356,7 @@ class MACDStrategy(BaseStrategy):
 
             # 计算MACD
             macd_line, signal_line, histogram = calculate_macd(
-                df['close'], self.fast_period, self.slow_period, self.signal_period
+                df['close'], fast=self.fast_period, slow=self.slow_period, signal=self.signal_period
             )
 
             self.add_indicator(symbol, 'macd', macd_line)
@@ -655,13 +671,13 @@ class MultiFactorStrategy(BaseStrategy):
             df = self.data[symbol]
 
             # 移动平均线
-            short_ma = calculate_ma(df['close'], self.ma_short)
-            long_ma = calculate_ma(df['close'], self.ma_long)
+            short_ma = calculate_ma(df['close'], period=self.ma_short)
+            long_ma = calculate_ma(df['close'], period=self.ma_long)
             self.add_indicator(symbol, 'short_ma', short_ma)
             self.add_indicator(symbol, 'long_ma', long_ma)
 
             # RSI
-            rsi = calculate_rsi(df['close'], self.rsi_period)
+            rsi = calculate_rsi(df['close'], period=self.rsi_period)
             self.add_indicator(symbol, 'rsi', rsi)
 
             # MACD

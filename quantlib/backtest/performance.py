@@ -123,6 +123,9 @@ class PerformanceAnalyzer:
         annualized_return = (1 + returns.mean()) ** 252 - 1
         calmar_ratio = annualized_return / abs(max_drawdown) if max_drawdown != 0 else 0
 
+        # 总体波动率
+        volatility = returns.std() * np.sqrt(252)
+
         return {
             'sharpe_ratio': sharpe_ratio,
             'sortino_ratio': sortino_ratio,
@@ -136,6 +139,8 @@ class PerformanceAnalyzer:
             'var_99_pct': var_99 * 100,
             'downside_volatility': downside_volatility,
             'downside_volatility_pct': downside_volatility * 100,
+            'volatility': volatility,
+            'volatility_pct': volatility * 100,
             'skewness': skewness,
             'kurtosis': kurtosis
         }

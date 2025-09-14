@@ -9,7 +9,8 @@
       "Bash(conda activate:*)",
       "Bash(call conda activate quant)",
       "Bash(C:Users10442miniconda3envsquantpython.exe test_minute_data.py)",
-      "WebFetch(domain:akshare.akfamily.xyz)"
+      "WebFetch(domain:akshare.akfamily.xyz)",
+      "Bash(C:Users10442miniconda3envsquantpython.exe test_strategies_601899.py)"
     ],
     "deny": [],
     "ask": []

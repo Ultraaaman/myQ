@@ -319,36 +319,36 @@ class VolumeIndicators:
     
     def obv(self) -> OBV:
         """能量潮指标"""
-        obv = OBV(self.data)
-        obv.calculate()
-        return obv
-    
+        obv_indicator = OBV(self.data)
+        obv_indicator.calculate()
+        return obv_indicator
+
     def vpt(self) -> VPT:
         """量价趋势指标"""
-        vpt = VPT(self.data)
-        vpt.calculate()
-        return vpt
-    
+        vpt_indicator = VPT(self.data)
+        vpt_indicator.calculate()
+        return vpt_indicator
+
     def volume_sma(self, periods: list = [5, 10, 20, 50]) -> VolumeSMA:
         """成交量移动平均线"""
-        vol_sma = VolumeSMA(self.data)
-        vol_sma.calculate(periods)
-        return vol_sma
-    
+        vol_sma_indicator = VolumeSMA(self.data)
+        vol_sma_indicator.calculate(periods)
+        return vol_sma_indicator
+
     def vwap(self, period: Optional[int] = None) -> VWAP:
         """成交量加权平均价格"""
-        vwap = VWAP(self.data)
-        vwap.calculate(period)
-        return vwap
-    
+        vwap_indicator = VWAP(self.data)
+        vwap_indicator.calculate(period)
+        return vwap_indicator
+
     def chaikin_money_flow(self, period: int = 20) -> ChaikinMoneyFlow:
         """蔡金资金流量指标"""
-        cmf = ChaikinMoneyFlow(self.data)
-        cmf.calculate(period)
-        return cmf
-    
+        cmf_indicator = ChaikinMoneyFlow(self.data)
+        cmf_indicator.calculate(period)
+        return cmf_indicator
+
     def accumulation_distribution(self) -> AccumulationDistribution:
         """累积/派发线"""
-        ad = AccumulationDistribution(self.data)
-        ad.calculate()
-        return ad
+        ad_indicator = AccumulationDistribution(self.data)
+        ad_indicator.calculate()
+        return ad_indicator
