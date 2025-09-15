@@ -1,0 +1,22 @@
+{
+  "symbols": [
+    "000001",
+    "000002", 
+    "000858",
+    "600519",
+    "600036",
+    "000300"
+  ],
+  "intervals": [
+    "1min"
+  ],
+  "storage_path": "data/minute_data",
+  "file_format": "parquet",
+  "collection_frequency_hours": 168,
+  "market": "CN",
+  "max_retries": 3,
+  "retry_delay_seconds": 60,
+  "cleanup_enabled": true,
+  "keep_months": 12,
+  "log_level": "INFO"
+}

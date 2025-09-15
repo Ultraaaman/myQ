@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import yfinance as yf
+from datetime import datetime, timedelta
 
 
 class FinancialChartGenerator:
@@ -419,3 +421,196 @@ class FinancialChartGenerator:
         else:
             ax.text(0.5, 0.5, '无市场表现数据', ha='center', va='center')
             ax.set_title('市场表现指标')
+    
+    def plot_hs300_benchmark(self, period='1y', comparison_symbol=None):
+        """绘制沪深300大盘走势图，可选择与个股对比"""
+        try:
+            # 获取沪深300数据
+            hs300 = yf.Ticker("000300.SS")  # 沪深300指数代码
+            
+            # 设置时间范围
+            if period == '1d':
+                hist_data = hs300.history(period='1d', interval='1h')
+                title_period = '日内'
+            elif period == '1w':
+                hist_data = hs300.history(period='7d')
+                title_period = '一周'
+            elif period == '1m':
+                hist_data = hs300.history(period='1mo')
+                title_period = '一个月'
+            elif period == '3m':
+                hist_data = hs300.history(period='3mo')
+                title_period = '三个月'
+            elif period == '6m':
+                hist_data = hs300.history(period='6mo')
+                title_period = '六个月'
+            elif period == '1y':
+                hist_data = hs300.history(period='1y')
+                title_period = '一年'
+            elif period == '2y':
+                hist_data = hs300.history(period='2y')
+                title_period = '两年'
+            else:
+                hist_data = hs300.history(period='1y')
+                title_period = '一年'
+            
+            if hist_data.empty:
+                print("无法获取沪深300数据，请检查网络连接")
+                return
+            
+            # 创建图表
+            if comparison_symbol:
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12))
+                fig.suptitle(f'沪深300大盘走势与{comparison_symbol}对比 ({title_period})', fontsize=16)
+                
+                # 上图：沪深300走势
+                self._plot_single_index(ax1, hist_data, '沪深300指数', 'blue')
+                
+                # 下图：个股对比
+                try:
+                    # 尝试获取个股数据
+                    stock_symbol = comparison_symbol
+                    if not stock_symbol.endswith(('.SS', '.SZ')):
+                        # 如果没有交易所后缀，尝试添加
+                        if stock_symbol.startswith('0') or stock_symbol.startswith('3'):
+                            stock_symbol += '.SZ'
+                        else:
+                            stock_symbol += '.SS'
+                    
+                    stock = yf.Ticker(stock_symbol)
+                    stock_data = stock.history(period=period)
+                    
+                    if not stock_data.empty:
+                        self._plot_comparison_chart(ax2, hist_data, stock_data, comparison_symbol)
+                    else:
+                        ax2.text(0.5, 0.5, f'无法获取{comparison_symbol}数据', ha='center', va='center')
+                        ax2.set_title(f'{comparison_symbol} vs 沪深300')
+                        
+                except Exception as e:
+                    ax2.text(0.5, 0.5, f'获取{comparison_symbol}数据失败:\n{str(e)}', ha='center', va='center')
+                    ax2.set_title(f'{comparison_symbol} vs 沪深300')
+            else:
+                fig, ax = plt.subplots(1, 1, figsize=(15, 8))
+                fig.suptitle(f'沪深300大盘走势 ({title_period})', fontsize=16)
+                self._plot_single_index(ax, hist_data, '沪深300指数', 'blue')
+            
+            plt.tight_layout()
+            plt.show()
+            
+        except Exception as e:
+            print(f"绘制沪深300走势图失败: {str(e)}")
+    
+    def _plot_single_index(self, ax, data, title, color):
+        """绘制单个指数走势"""
+        # 绘制收盘价线图
+        ax.plot(data.index, data['Close'], color=color, linewidth=2, label=title)
+        ax.fill_between(data.index, data['Close'], alpha=0.3, color=color)
+        
+        # 设置标题和标签
+        ax.set_title(title)
+        ax.set_ylabel('指数点位')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        
+        # 添加最新点位和涨跌幅信息
+        if len(data) > 1:
+            current_price = data['Close'].iloc[-1]
+            prev_price = data['Close'].iloc[0]
+            change = current_price - prev_price
+            change_pct = (change / prev_price) * 100
+            
+            # 在图上添加当前信息
+            info_text = f"当前: {current_price:.2f}\n涨跌: {change:+.2f} ({change_pct:+.2f}%)"
+            ax.text(0.02, 0.98, info_text, transform=ax.transAxes, 
+                   bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.8),
+                   verticalalignment='top', fontsize=10)
+        
+        # 格式化x轴日期
+        if len(data) > 30:
+            # 如果数据点太多，只显示部分日期标签
+            ax.tick_params(axis='x', rotation=45)
+    
+    def _plot_comparison_chart(self, ax, hs300_data, stock_data, stock_symbol):
+        """绘制沪深300与个股的对比图（归一化）"""
+        # 确保两个数据集有相同的时间范围
+        common_dates = hs300_data.index.intersection(stock_data.index)
+        if len(common_dates) == 0:
+            ax.text(0.5, 0.5, '数据时间范围不匹配', ha='center', va='center')
+            ax.set_title(f'{stock_symbol} vs 沪深300')
+            return
+        
+        hs300_aligned = hs300_data.loc[common_dates]['Close']
+        stock_aligned = stock_data.loc[common_dates]['Close']
+        
+        # 归一化到起始点为100
+        hs300_normalized = (hs300_aligned / hs300_aligned.iloc[0]) * 100
+        stock_normalized = (stock_aligned / stock_aligned.iloc[0]) * 100
+        
+        # 绘制对比图
+        ax.plot(common_dates, hs300_normalized, color='blue', linewidth=2, label='沪深300')
+        ax.plot(common_dates, stock_normalized, color='red', linewidth=2, label=stock_symbol)
+        
+        ax.set_title(f'{stock_symbol} vs 沪深300 (归一化对比)')
+        ax.set_ylabel('相对表现 (起始=100)')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.axhline(y=100, color='gray', linestyle='--', alpha=0.5)
+        
+        # 添加最终表现对比
+        if len(hs300_normalized) > 0 and len(stock_normalized) > 0:
+            hs300_final = hs300_normalized.iloc[-1]
+            stock_final = stock_normalized.iloc[-1]
+            outperformance = stock_final - hs300_final
+            
+            info_text = f"沪深300: {hs300_final:.1f}\n{stock_symbol}: {stock_final:.1f}\n相对表现: {outperformance:+.1f}"
+            ax.text(0.02, 0.98, info_text, transform=ax.transAxes,
+                   bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray", alpha=0.8),
+                   verticalalignment='top', fontsize=10)
+        
+        ax.tick_params(axis='x', rotation=45)
+    
+    def plot_market_overview(self, period='1d'):
+        """绘制市场概览图，包括沪深300、上证指数、深证成指"""
+        try:
+            # 主要指数代码
+            indices = {
+                '沪深300': '000300.SS',
+                '上证指数': '000001.SS', 
+                '深证成指': '399001.SZ',
+                '创业板指': '399006.SZ'
+            }
+            
+            fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+            fig.suptitle(f'A股市场概览 ({period})', fontsize=16)
+            
+            colors = ['blue', 'green', 'red', 'purple']
+            
+            for i, (name, symbol) in enumerate(indices.items()):
+                try:
+                    ticker = yf.Ticker(symbol)
+                    data = ticker.history(period=period)
+                    
+                    if not data.empty:
+                        row = i // 2
+                        col = i % 2
+                        ax = axes[row, col]
+                        self._plot_single_index(ax, data, name, colors[i])
+                    else:
+                        row = i // 2
+                        col = i % 2
+                        ax = axes[row, col]
+                        ax.text(0.5, 0.5, f'无{name}数据', ha='center', va='center')
+                        ax.set_title(name)
+                        
+                except Exception as e:
+                    row = i // 2
+                    col = i % 2
+                    ax = axes[row, col]
+                    ax.text(0.5, 0.5, f'{name}数据获取失败', ha='center', va='center')
+                    ax.set_title(name)
+            
+            plt.tight_layout()
+            plt.show()
+            
+        except Exception as e:
+            print(f"绘制市场概览失败: {str(e)}")
