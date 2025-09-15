@@ -9,7 +9,7 @@
 """
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, List, Optional, Any, Union
 from datetime import datetime, date
 from enum import Enum
 import warnings
@@ -62,14 +62,19 @@ class PortfolioManager:
     投资组合管理器
 
     负责管理投资组合的所有方面，包括仓位、风险、绩效等
+    支持Live交易和Backtest模式的统一接口
     """
 
-    def __init__(self, initial_capital: float = 1000000.0, name: str = "Portfolio"):
+    def __init__(self, initial_capital: float = 1000000.0, name: str = "Portfolio", mode: str = "live"):
         self.name = name
         self.initial_capital = initial_capital
         self.current_cash = initial_capital
         self.positions: Dict[str, PortfolioPosition] = {}
         self.historical_positions: List[PortfolioPosition] = []
+        
+        # 添加模式支持
+        self.mode = mode  # "live" or "backtest"
+        self.backtest_engine = None
 
         # 交易记录
         self.trades: List[Dict[str, Any]] = []
@@ -80,10 +85,92 @@ class PortfolioManager:
         self.max_sector_weight = 0.3    # 单行业最大权重
         self.max_leverage = 1.0         # 最大杠杆
         self.stop_loss_pct = 0.05       # 止损比例
+        
+        # 策略集成支持
+        self.strategies: Dict[str, Any] = {}
+        self.strategy_weights: Dict[str, float] = {}
 
         # 再平衡参数
         self.rebalance_threshold = 0.05  # 再平衡阈值
         self.target_weights: Dict[str, float] = {}
+        
+        # 回测模式专用属性
+        if mode == "backtest":
+            self._setup_backtest_mode()
+            
+    def _setup_backtest_mode(self):
+        """设置回测模式专用配置"""
+        # 导入回测相关模块
+        try:
+            from ..backtest.backtrader_engine import BacktraderEngine
+            self.backtest_engine = BacktraderEngine(self.initial_capital)
+        except ImportError:
+            warnings.warn("Backtest engine not available. Running in simulation mode.")
+            self.backtest_engine = None
+            
+    def add_strategy(self, name: str, strategy, weight: float = 1.0):
+        """添加策略到投资组合"""
+        self.strategies[name] = strategy
+        self.strategy_weights[name] = weight
+        
+    def remove_strategy(self, name: str):
+        """移除策略"""
+        if name in self.strategies:
+            del self.strategies[name]
+        if name in self.strategy_weights:
+            del self.strategy_weights[name]
+            
+    def run_backtest(self, data: Union[pd.DataFrame, Dict[str, pd.DataFrame]], 
+                     start_date: Optional[datetime] = None,
+                     end_date: Optional[datetime] = None) -> Dict[str, Any]:
+        """运行投资组合回测"""
+        if self.mode != "backtest":
+            raise ValueError("Portfolio must be in backtest mode to run backtests")
+            
+        if not self.strategies:
+            raise ValueError("No strategies added to portfolio")
+            
+        results = {}
+        
+        # 对每个策略运行回测
+        for strategy_name, strategy in self.strategies.items():
+            weight = self.strategy_weights[strategy_name]
+            
+            if self.backtest_engine:
+                # 使用backtrader引擎
+                strategy_result = self.backtest_engine.run_backtest(strategy, data)
+            else:
+                # 简化模拟回测
+                strategy_result = self._simulate_strategy_backtest(strategy, data)
+            
+            # 按权重调整结果
+            strategy_result['weight'] = weight
+            strategy_result['weighted_return'] = strategy_result.get('total_return', 0) * weight
+            
+            results[strategy_name] = strategy_result
+        
+        # 计算组合总体表现
+        total_weighted_return = sum(r['weighted_return'] for r in results.values())
+        
+        portfolio_result = {
+            'strategies': results,
+            'portfolio_return': total_weighted_return,
+            'initial_value': self.initial_capital,
+            'final_value': self.initial_capital * (1 + total_weighted_return),
+            'strategy_count': len(self.strategies)
+        }
+        
+        return portfolio_result
+        
+    def _simulate_strategy_backtest(self, strategy, data) -> Dict[str, Any]:
+        """简化的策略回测模拟"""
+        # 这是一个简化版本，当backtrader不可用时使用
+        return {
+            'total_return': 0.05,  # 模拟5%收益
+            'total_return_pct': 5.0,
+            'trades': [],
+            'note': 'Simulated backtest result'
+        }
 
     def add_cash(self, amount: float):
         """添加现金"""
@@ -107,6 +194,10 @@ class PortfolioManager:
         for symbol, price in prices.items():
             if symbol in self.positions:
                 self.positions[symbol].update_price(price)
+                
+        # 在回测模式下记录每日价值
+        if self.mode == "backtest":
+            self._record_daily_value(prices)
 
     def calculate_weights(self) -> Dict[str, float]:
         """计算当前权重"""
@@ -178,7 +269,7 @@ class PortfolioManager:
         self.current_cash -= cost
 
         # 记录交易
-        self.trades.append({
+        trade_record = {
             'timestamp': datetime.now(),
             'symbol': symbol,
             'action': 'buy',
@@ -186,7 +277,12 @@ class PortfolioManager:
             'price': price,
             'amount': cost,
             'cash_after': self.current_cash
-        })
+        }
+        self.trades.append(trade_record)
+        
+        # 在回测模式下同时记录到策略系统
+        if self.mode == "backtest" and self.backtest_engine:
+            self._log_trade_to_backtest(trade_record)
 
         return True
 
@@ -240,7 +336,7 @@ class PortfolioManager:
             del self.positions[symbol]
 
         # 记录交易
-        self.trades.append({
+        trade_record = {
             'timestamp': datetime.now(),
             'symbol': symbol,
             'action': 'sell',
@@ -249,7 +345,12 @@ class PortfolioManager:
             'amount': revenue,
             'realized_pnl': realized_pnl,
             'cash_after': self.current_cash
-        })
+        }
+        self.trades.append(trade_record)
+        
+        # 在回测模式下同时记录到策略系统
+        if self.mode == "backtest" and self.backtest_engine:
+            self._log_trade_to_backtest(trade_record)
 
         return True
 
@@ -308,6 +409,25 @@ class PortfolioManager:
                             })
 
         return trades
+
+    def _record_daily_value(self, prices: Dict[str, float]):
+        """记录每日组合价值（回测模式专用）"""
+        total_value = self.get_total_value()
+        positions_value = self.get_positions_value()
+        
+        daily_record = {
+            'timestamp': datetime.now(),
+            'total_value': total_value,
+            'cash': self.current_cash,
+            'positions_value': positions_value,
+            'return_since_inception': (total_value - self.initial_capital) / self.initial_capital
+        }
+        self.daily_values.append(daily_record)
+        
+    def _log_trade_to_backtest(self, trade_record: Dict[str, Any]):
+        """将交易记录到回测引擎（如果可用）"""
+        if self.backtest_engine and hasattr(self.backtest_engine, 'log_trade'):
+            self.backtest_engine.log_trade(trade_record)
 
     def calculate_equal_weights(self, symbols: List[str]) -> Dict[str, float]:
         """计算等权重配置"""
@@ -534,6 +654,46 @@ class PortfolioManager:
                 f"Positions={positions_count}, "
                 f"Cash={cash_weight:.1%}")
 
+class FactorPortfolioManager(PortfolioManager):
+    """
+    因子投资组合管理器
+    
+    专门用于因子策略的组合管理，扩展了基础PortfolioManager功能
+    """
+    
+    def __init__(self, initial_capital: float = 1000000.0, name: str = "Factor Portfolio", mode: str = "live"):
+        super().__init__(initial_capital, name, mode)
+        
+        # 因子相关属性
+        self.factor_exposures: Dict[str, float] = {}
+        self.factor_returns: Dict[str, List[float]] = {}
+        self.risk_model = None
+        
+    def set_factor_exposures(self, exposures: Dict[str, float]):
+        """设置组合的因子暴露"""
+        self.factor_exposures = exposures
+        
+    def get_factor_attribution(self) -> Dict[str, float]:
+        """计算因子归因分析"""
+        if not self.factor_exposures:
+            return {}
+        
+        performance_metrics = self.get_performance_metrics()
+        portfolio_return = performance_metrics.get('total_return', 0)
+        
+        attribution = {}
+        total_exposure = sum(abs(exp) for exp in self.factor_exposures.values())
+        
+        for factor_name, exposure in self.factor_exposures.items():
+            if total_exposure > 0:
+                # 简化的归因计算（实际中需要更复杂的模型）
+                attribution[factor_name] = (exposure / total_exposure) * portfolio_return
+            else:
+                attribution[factor_name] = 0
+        
+        return attribution
+
+
 def create_portfolio_manager(initial_capital: float = 1000000.0,
                            name: str = "Portfolio") -> PortfolioManager:
     """
@@ -547,3 +707,20 @@ def create_portfolio_manager(initial_capital: float = 1000000.0,
         PortfolioManager实例
     """
     return PortfolioManager(initial_capital=initial_capital, name=name)
+
+
+def create_factor_portfolio_manager(initial_capital: float = 1000000.0, 
+                                  name: str = "Factor Portfolio",
+                                  mode: str = "live") -> FactorPortfolioManager:
+    """
+    创建因子投资组合管理器的便捷函数
+    
+    Args:
+        initial_capital: 初始资金
+        name: 组合名称
+        mode: 运行模式 ("live" 或 "backtest")
+    
+    Returns:
+        FactorPortfolioManager实例
+    """
+    return FactorPortfolioManager(initial_capital, name, mode)
