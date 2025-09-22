@@ -160,10 +160,24 @@ class AkshareProvider(BaseDataProvider):
                 )
             else:
                 # 日线及以上数据
+                # 映射interval到akshare的period参数
+                interval_map = {
+                    "1d": "daily",
+                    "1w": "weekly",
+                    "1wk": "weekly",
+                    "1mo": "monthly",
+                    "1M": "monthly",
+                    "daily": "daily",
+                    "weekly": "weekly",
+                    "monthly": "monthly"
+                }
+
+                akshare_period = interval_map.get(interval, "daily")
+
                 # 获取历史数据，使用前复权
                 data = ak.stock_zh_a_hist(
                     symbol=self.symbol,
-                    period=interval,
+                    period=akshare_period,
                     adjust="qfq"  # 前复权
                 )
             
