@@ -10,7 +10,9 @@
       "Bash(call conda activate quant)",
       "Bash(C:Users10442miniconda3envsquantpython.exe test_minute_data.py)",
       "WebFetch(domain:akshare.akfamily.xyz)",
-      "Bash(C:Users10442miniconda3envsquantpython.exe test_strategies_601899.py)"
+      "Bash(C:Users10442miniconda3envsquantpython.exe test_strategies_601899.py)",
+      "Bash(C:Users10442miniconda3envsquantpython.exe test_crawler.py)",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" test_crawler.py)"
     ],
     "deny": [],
     "ask": []

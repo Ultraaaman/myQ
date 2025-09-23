@@ -167,12 +167,12 @@ def aggregate_daily_scores(news_df):
 
     return daily_scores
 
-def get_stock_price_data(daily_scores):
+def get_stock_price_data(news_data):
     """
-    获取股价数据
+    获取股价数据（基于新闻数据的实际时间范围）
 
     Args:
-        daily_scores (pd.DataFrame): 日度新闻评分数据
+        news_data (pd.DataFrame): 原始新闻数据（包含date列）
 
     Returns:
         pd.DataFrame: 股价数据
@@ -192,15 +192,48 @@ def get_stock_price_data(daily_scores):
             # 初始化数据管理器
             data_manager = MarketDataManager()
 
-            # 扩展时间范围
-            start_date = daily_scores['date'].min() - timedelta(days=5)
-            end_date = daily_scores['date'].max() + timedelta(days=5)
+            # 从原始新闻数据获取实际时间范围
+            if 'date' not in news_data.columns:
+                print("⚠️ 新闻数据缺少date列，尝试从original_date列获取")
+                if 'original_date' in news_data.columns:
+                    news_data['date'] = pd.to_datetime(news_data['original_date'])
+                else:
+                    raise ValueError("新闻数据缺少时间列")
 
-            print(f"获取股价数据时间范围: {start_date.date()} 到 {end_date.date()}")
+            news_start = news_data['date'].min()
+            news_end = news_data['date'].max()
+
+            # 为未来收益率计算留出适当缓冲时间
+            # 但分析时仍限制在新闻时间范围内
+            start_date = news_start - timedelta(days=5)   # 少量历史缓冲
+            end_date = news_end + timedelta(days=10)      # 为未来收益率留缓冲
+
+            print(f"✓ 实际新闻范围: {news_start.date()} 到 {news_end.date()}")
+            print(f"✓ 股价获取范围: {start_date.date()} 到 {end_date.date()} (含缓冲)")
+            print(f"⚠️ 注意: 分析将限制在新闻时间范围内")
+
+            # 计算时间跨度，动态选择period
+            time_span_days = (end_date - start_date).days
+
+            print(f"新闻数据时间范围: {news_start.date()} 到 {news_end.date()}")
+            print(f"股价数据时间范围: {start_date.date()} 到 {end_date.date()} (跨度: {time_span_days}天)")
+
+            # 根据时间跨度动态选择period参数
+            if time_span_days <= 35:
+                period_options = ['1mo', '2mo', '3mo']
+            elif time_span_days <= 95:
+                period_options = ['3mo', '6mo', '1y']
+            elif time_span_days <= 185:
+                period_options = ['6mo', '1y', '2y']
+            elif time_span_days <= 370:
+                period_options = ['1y', '2y', '5y']
+            else:
+                period_options = ['2y', '5y', '10y', 'max']
+
+            print(f"根据时间跨度({time_span_days}天)选择period选项: {period_options}")
 
             # 尝试不同的市场标识符和时间周期获取紫金矿业(601899)股价数据
             market_options = ['CN', 'A股', 'CHINA']
-            period_options = ['3mo', '1mo', '2mo', '90d', '60d']
             stock_data = None
 
             for market in market_options:
@@ -211,8 +244,35 @@ def get_stock_price_data(daily_scores):
                             print(f"  - 尝试时间周期: {period}")
                             stock_data = data_manager.get_stock_data('601899', market=market, period=period, interval='1d')
                             if stock_data is not None and len(stock_data) > 0:
-                                print(f"✓ 使用 {market}, period={period} 成功获取股价数据，形状: {stock_data.shape}")
-                                break
+                                # 检查数据的时间范围是否覆盖新闻数据
+                                if hasattr(stock_data, 'index') and hasattr(stock_data.index, 'min'):
+                                    stock_start = pd.to_datetime(stock_data.index.min())
+                                    stock_end = pd.to_datetime(stock_data.index.max())
+                                elif 'date' in stock_data.columns:
+                                    stock_start = pd.to_datetime(stock_data['date'].min())
+                                    stock_end = pd.to_datetime(stock_data['date'].max())
+                                else:
+                                    # 如果无法确定时间范围，假设覆盖了
+                                    stock_start = start_date
+                                    stock_end = end_date
+
+                                coverage_start = stock_start <= news_start
+                                coverage_end = stock_end >= news_end
+
+                                print(f"    ✓ 获取股价数据成功，形状: {stock_data.shape}")
+                                print(f"    ✓ 股价时间范围: {stock_start.date()} 到 {stock_end.date()}")
+                                print(f"    ✓ 覆盖新闻数据: 起始{'✓' if coverage_start else '×'} 结束{'✓' if coverage_end else '×'}")
+
+                                if coverage_start and coverage_end:
+                                    print(f"    ✓ 时间覆盖完整，使用此数据")
+                                    break
+                                else:
+                                    print(f"    ⚠ 时间覆盖不完整，尝试下一个period")
+                                    if period == period_options[-1]:  # 如果是最后一个选项，也接受
+                                        print(f"    → 已是最后选项，仍然使用此数据")
+                                        break
+                            else:
+                                print(f"    × 数据为空")
                         except Exception as e:
                             print(f"    × period={period} 失败: {e}")
                             continue
@@ -227,7 +287,12 @@ def get_stock_price_data(daily_scores):
                 try:
                     from quantlib.market_data import get_stock_data
                     print("尝试使用便捷函数 get_stock_data...")
-                    stock_data = get_stock_data('601899', market='CN', period='1mo')
+
+                    # 使用动态选择的最佳period
+                    best_period = period_options[0] if period_options else '6mo'
+                    print(f"便捷函数使用period: {best_period}")
+
+                    stock_data = get_stock_data('601899', market='CN', period=best_period)
                     if stock_data is not None:
                         print(f"✓ 便捷函数成功获取数据，形状: {stock_data.shape}")
                 except Exception as e:
@@ -274,32 +339,45 @@ def get_stock_price_data(daily_scores):
                 return stock_data_clean
             else:
                 print("✗ 所有市场标识符都获取数据失败，使用模拟数据")
-                return create_simulated_stock_data(daily_scores)
+                return create_simulated_stock_data(news_data)
 
         except Exception as e:
             print(f"✗ 获取股价数据时出错: {e}")
             print("使用模拟数据进行演示...")
-            return create_simulated_stock_data(daily_scores)
+            return create_simulated_stock_data(news_data)
     else:
         print("quantlib.market_data 模块不可用，使用模拟数据进行演示...")
-        return create_simulated_stock_data(daily_scores)
+        return create_simulated_stock_data(news_data)
 
-def create_simulated_stock_data(daily_scores):
+def create_simulated_stock_data(news_data):
     """
-    创建模拟股价数据用于演示
+    创建模拟股价数据用于演示（基于新闻数据时间范围）
 
     Args:
-        daily_scores (pd.DataFrame): 日度新闻评分数据
+        news_data (pd.DataFrame): 原始新闻数据
 
     Returns:
         pd.DataFrame: 模拟股价数据
     """
     print("创建模拟股价数据...")
 
+    # 确保新闻数据有date列
+    if 'date' not in news_data.columns:
+        if 'original_date' in news_data.columns:
+            news_data['date'] = pd.to_datetime(news_data['original_date'])
+        else:
+            raise ValueError("新闻数据缺少时间列")
+
+    news_start = news_data['date'].min()
+    news_end = news_data['date'].max()
+
+    print(f"基于新闻数据时间范围创建模拟数据: {news_start.date()} 到 {news_end.date()}")
+
     np.random.seed(42)
+    # 模拟数据也留出适当缓冲，但主要集中在新闻时间范围
     dates = pd.date_range(
-        start=daily_scores['date'].min() - timedelta(days=2),
-        end=daily_scores['date'].max() + timedelta(days=2),
+        start=news_start - timedelta(days=5),
+        end=news_end + timedelta(days=10),
         freq='D'
     )
 
@@ -337,7 +415,7 @@ def create_simulated_stock_data(daily_scores):
 
 def merge_data(daily_scores, stock_data):
     """
-    合并新闻评分和股价数据
+    合并新闻评分和股价数据（只在新闻时间范围内）
 
     Args:
         daily_scores (pd.DataFrame): 日度新闻评分数据
@@ -347,8 +425,14 @@ def merge_data(daily_scores, stock_data):
         pd.DataFrame: 合并后的数据
     """
     print("\n" + "=" * 50)
-    print("步骤 4: 数据对齐和合并")
+    print("步骤 4: 数据对齐和合并（限制在新闻时间范围内）")
     print("=" * 50)
+
+    # 确定新闻数据的时间范围
+    news_start = daily_scores['date'].min()
+    news_end = daily_scores['date'].max()
+
+    print(f"✓ 新闻数据时间范围: {news_start.date()} 到 {news_end.date()}")
 
     # 确定要合并的股价列
     stock_columns = ['date']
@@ -358,30 +442,108 @@ def merge_data(daily_scores, stock_data):
 
     print(f"✓ 准备合并的股价列: {stock_columns}")
 
-    # 合并数据
+    # 1. 只保留新闻时间范围内的股价数据
+    stock_data_filtered = stock_data[
+        (stock_data['date'] >= news_start) &
+        (stock_data['date'] <= news_end)
+    ][stock_columns].copy()
+
+    print(f"✓ 过滤后股价数据形状: {stock_data_filtered.shape}")
+    print(f"✓ 股价数据时间范围: {stock_data_filtered['date'].min().date()} 到 {stock_data_filtered['date'].max().date()}")
+
+    # 2. 在新闻时间范围内创建完整的交易日序列
+    # 只包含股价数据中存在的交易日（排除节假日）
+    available_trading_days = stock_data_filtered['date'].sort_values().unique()
+
+    # 创建完整的交易日DataFrame
+    trading_days_df = pd.DataFrame({'date': available_trading_days})
+
+    # 3. 先合并股价数据
     merged_data = pd.merge(
-        daily_scores,
-        stock_data[stock_columns],
+        trading_days_df,
+        stock_data_filtered,
         on='date',
-        how='inner'
+        how='left'
+    )
+
+    # 4. 再合并新闻评分数据
+    merged_data = pd.merge(
+        merged_data,
+        daily_scores,
+        on='date',
+        how='left'  # 保留所有交易日
     )
 
     print(f"✓ 合并后数据形状: {merged_data.shape}")
 
     if len(merged_data) > 0:
-        # 计算价格变化率和未来收益率
+        # 5. 在新闻时间范围内对缺失的新闻评分进行智能插值
+        score_columns = ['overall_score_mean', 'score_mean']  # 兼容性处理
+        score_col = None
+        for col in score_columns:
+            if col in merged_data.columns:
+                score_col = col
+                break
+
+        if score_col is not None:
+            print(f"✓ 对新闻评分进行插值处理: {score_col}")
+
+            # 统计插值前的情况
+            before_fill = merged_data[score_col].notna().sum()
+            total_days = len(merged_data)
+
+            print(f"  插值前: {before_fill}/{total_days} 天有新闻数据")
+
+            # 只在新闻时间范围内进行插值，不超出范围
+            # 使用0填充无新闻的交易日（不使用前向/后向填充，避免信息泄露）
+            merged_data[score_col] = merged_data[score_col].fillna(0)
+
+            # 统计最终结果
+            days_with_news = (merged_data[score_col] != 0).sum()
+            days_without_news = (merged_data[score_col] == 0).sum()
+
+            print(f"  插值后: {days_with_news} 天有新闻，{days_without_news} 天无新闻")
+            print(f"  新闻覆盖率: {days_with_news/total_days:.1%}")
+
+            # 处理其他评分列
+            other_score_cols = [
+                'direct_impact_score_mean', 'indirect_impact_score_mean',
+                'certainty_mean', 'weighted_score'
+            ]
+            for col in other_score_cols:
+                if col in merged_data.columns:
+                    merged_data[col] = merged_data[col].fillna(0)
+                    print(f"  ✓ 同步插值: {col}")
+        else:
+            print("⚠️ 未找到有效的评分列")
+
+        print(f"✓ 最终数据时间范围: {merged_data['date'].min().date()} 到 {merged_data['date'].max().date()}")
+        print(f"✓ 确保所有数据都在新闻时间范围内")
+
+        # 计算价格变化率和未来收益率 (改进版)
         merged_data = merged_data.sort_values('date').reset_index(drop=True)
-        merged_data['price_change'] = merged_data['Close'].pct_change() * 100
+        merged_data['price_change'] = merged_data['Close'].pct_change()  # 小数形式
 
-        # 计算未来1天、2天、3天、5天的收益率
-        merged_data['future_return_1d'] = (merged_data['Close'].shift(-1) / merged_data['Close'] - 1) * 100
-        merged_data['future_return_2d'] = (merged_data['Close'].shift(-2) / merged_data['Close'] - 1) * 100
-        merged_data['future_return_3d'] = (merged_data['Close'].shift(-3) / merged_data['Close'] - 1) * 100
-        merged_data['future_return_5d'] = (merged_data['Close'].shift(-5) / merged_data['Close'] - 1) * 100
+        # 3. 改进收益率计算 - 使用真实交易场景
+        # 假设新闻在前一日收盘后发布，次日开盘买入
+        merged_data['next_open'] = merged_data['Open'].shift(-1)
 
-        # 保留原有的price_change_next以向后兼容
-        merged_data['price_change_next'] = merged_data['future_return_1d']
-        merged_data['volume_change'] = merged_data['Volume'].pct_change() * 100
+        # 计算未来收益率：从次日开盘到period日后收盘 (小数形式)
+        merged_data['future_return_1d'] = merged_data['Close'].shift(-1) / merged_data['next_open'] - 1
+        merged_data['future_return_2d'] = merged_data['Close'].shift(-2) / merged_data['next_open'] - 1
+        merged_data['future_return_3d'] = merged_data['Close'].shift(-3) / merged_data['next_open'] - 1
+        merged_data['future_return_5d'] = merged_data['Close'].shift(-5) / merged_data['next_open'] - 1
+
+        # 保留原有的price_change_next以向后兼容 (转为百分比显示)
+        merged_data['price_change_next'] = merged_data['future_return_1d'] * 100
+
+        # 4. 成交量变化：改为前一日到当前日的变化 (避免未来信息泄漏)
+        merged_data['prev_volume_change'] = merged_data['Volume'].pct_change()
+
+        # 5. 未来成交量变化（与收益率逻辑一致）
+        merged_data['future_volume_change_1d'] = merged_data['Volume'].shift(-1) / merged_data['Volume'] - 1
+        merged_data['future_volume_change_3d'] = merged_data['Volume'].shift(-3) / merged_data['Volume'] - 1
+        merged_data['future_volume_change_5d'] = merged_data['Volume'].shift(-5) / merged_data['Volume'] - 1
 
         print(f"✓ 时间范围: {merged_data['date'].min().date()} 到 {merged_data['date'].max().date()}")
         print("\n合并数据预览:")
@@ -393,12 +555,22 @@ def merge_data(daily_scores, stock_data):
 
         if len(available_cols) >= 4:
             print("包含未来收益率的数据预览:")
-            print(merged_data[available_cols].head())
+            # 显示时转换为百分比，但内部保持小数
+            display_data = merged_data[available_cols].head().copy()
+            for col in ['future_return_1d', 'future_return_2d', 'future_return_3d', 'future_return_5d']:
+                if col in display_data.columns:
+                    display_data[col] = display_data[col] * 100  # 转换为百分比显示
+            print(display_data)
         else:
             print("列名不匹配，显示所有可用列:")
             print(f"可用列: {list(merged_data.columns)}")
             if 'date' in merged_data.columns and 'Close' in merged_data.columns:
-                print(merged_data[['date', 'Close'] + [col for col in ['future_return_1d', 'future_return_2d'] if col in merged_data.columns]].head())
+                display_cols = [col for col in ['future_return_1d', 'future_return_2d'] if col in merged_data.columns]
+                if display_cols:
+                    display_data = merged_data[['date', 'Close'] + display_cols].head().copy()
+                    for col in display_cols:
+                        display_data[col] = display_data[col] * 100  # 转换为百分比显示
+                    print(display_data)
 
     return merged_data
 
@@ -415,16 +587,23 @@ def plot_time_series(merged_data):
 
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
 
+    # 确定评分列名
+    score_col = 'overall_score_mean' if 'overall_score_mean' in merged_data.columns else 'score_mean'
+
     # Plot 1: Overall Score Time Series
     ax1 = axes[0, 0]
-    ax1.plot(merged_data['date'], merged_data['overall_score_mean'],
-             'b-o', linewidth=2.5, markersize=6, alpha=0.8, label='Overall Score')
+    if score_col in merged_data.columns:
+        ax1.plot(merged_data['date'], merged_data[score_col],
+                 'b-o', linewidth=2.5, markersize=6, alpha=0.8, label='Overall Score')
+    else:
+        ax1.text(0.5, 0.5, 'No Score Data Available', ha='center', va='center', transform=ax1.transAxes)
 
     # Add standard deviation fill
-    if 'overall_score_std' in merged_data.columns:
+    std_col = 'overall_score_std' if 'overall_score_std' in merged_data.columns else 'score_std'
+    if std_col in merged_data.columns and score_col in merged_data.columns:
         ax1.fill_between(merged_data['date'],
-                         merged_data['overall_score_mean'] - merged_data['overall_score_std'],
-                         merged_data['overall_score_mean'] + merged_data['overall_score_std'],
+                         merged_data[score_col] - merged_data[std_col],
+                         merged_data[score_col] + merged_data[std_col],
                          alpha=0.2, color='blue', label='±1 Std Dev')
 
     ax1.set_title('Overall Score Time Series', fontsize=14, fontweight='bold')
@@ -456,19 +635,24 @@ def plot_time_series(merged_data):
     ax3_twin = ax3.twinx()
 
     # Left axis: News Score
-    line1 = ax3.plot(merged_data['date'], merged_data['overall_score_mean'],
-                     'b-o', linewidth=2, markersize=4, label='News Score', alpha=0.8)
+    if score_col in merged_data.columns:
+        line1 = ax3.plot(merged_data['date'], merged_data[score_col],
+                         'b-o', linewidth=2, markersize=4, label='News Score', alpha=0.8)
+    else:
+        line1 = []
     ax3.set_ylabel('News Score', color='blue', fontsize=12)
     ax3.tick_params(axis='y', labelcolor='blue')
     ax3.grid(True, alpha=0.3)
 
-    # Right axis: 1-Day Future Return
+    # Right axis: 1-Day Future Return (显示为百分比)
     if 'future_return_1d' in merged_data.columns:
-        line2 = ax3_twin.plot(merged_data['date'], merged_data['future_return_1d'],
+        line2 = ax3_twin.plot(merged_data['date'], merged_data['future_return_1d'] * 100,
                               'r-s', linewidth=2, markersize=4, label='1-Day Future Return', alpha=0.8)
         ax3_twin.set_ylabel('1-Day Future Return (%)', color='red', fontsize=12)
         ax3_twin.tick_params(axis='y', labelcolor='red')
         ax3_twin.axhline(y=0, color='red', linestyle='--', alpha=0.3)
+    else:
+        line2 = []
 
     ax3.set_title('News Score vs 1-Day Future Return', fontsize=14, fontweight='bold')
     ax3.set_xlabel('Date', fontsize=12)
@@ -489,8 +673,8 @@ def plot_time_series(merged_data):
     plotted_any = False
     for i, (col, color, label) in enumerate(zip(future_return_cols, colors, labels)):
         if col in merged_data.columns:
-            # Calculate 3-day moving average for smoothing
-            ma_data = merged_data[col].rolling(window=3, min_periods=1).mean()
+            # Calculate 3-day moving average for smoothing (显示为百分比)
+            ma_data = merged_data[col].rolling(window=3, min_periods=1).mean() * 100
             ax4.plot(merged_data['date'], ma_data,
                      color=color, linewidth=2, alpha=0.8, label=f'{label} Future Return', marker='o', markersize=3)
             plotted_any = True
@@ -1432,8 +1616,10 @@ def main():
     print("=" * 60)
 
     # 文件路径配置
-    news_data_path = r'E:\projects\myQ\scripts\news_scores_result.csv'
-    output_path = r'E:\projects\myQ\scripts\news_price_analysis_result.csv'
+    # news_data_path = r'E:\projects\myQ\scripts\news_scores_result.csv'
+    # output_path = r'E:\projects\myQ\scripts\news_price_analysis_result.csv'
+    news_data_path = r'D:\projects\q\myQ\scripts\news_scores_result.csv'
+    output_path = r'D:\projects\q\myQ\scripts\news_price_analysis_result.csv'
 
     # 检查输入文件是否存在
     if not os.path.exists(news_data_path):
@@ -1446,11 +1632,11 @@ def main():
         if news_df is None:
             return
 
-        # 步骤2: 聚合日度评分
-        daily_scores = aggregate_daily_scores(news_df)
+        # 步骤2: 获取股价数据（基于新闻数据的实际时间范围）
+        stock_data = get_stock_price_data(news_df)
 
-        # 步骤3: 获取股价数据
-        stock_data = get_stock_price_data(daily_scores)
+        # 步骤3: 聚合日度评分
+        daily_scores = aggregate_daily_scores(news_df)
 
         # 步骤4: 合并数据
         merged_data = merge_data(daily_scores, stock_data)

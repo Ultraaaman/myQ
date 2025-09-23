@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+修复版新闻爬虫 - 解决内容获取导致的数据丢失问题
+"""
+
 import requests
 import json
 import pandas as pd
@@ -14,7 +20,7 @@ class EastmoneyNewsCrawler:
             'Referer': 'https://so.eastmoney.com/',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
         }
-    
+
     def get_news(self, keyword, sort_type='time', start_date=None, end_date=None, max_news=50):
         """
         获取指定时间范围内的新闻
@@ -44,14 +50,14 @@ class EastmoneyNewsCrawler:
                 end_date = datetime.strptime(end_date, '%Y-%m-%d')
 
             print(f"时间范围: {start_date.strftime('%Y-%m-%d')} 到 {end_date.strftime('%Y-%m-%d')}")
-        
+
         # API参数
         param_data = {
             "uid": "",
             "keyword": keyword,
             "type": ["cmsArticleWebOld"],
             "client": "web",
-            "clientType": "web", 
+            "clientType": "web",
             "clientVersion": "curr",
             "param": {
                 "cmsArticleWebOld": {
@@ -64,19 +70,19 @@ class EastmoneyNewsCrawler:
                 }
             }
         }
-        
+
         params = {
             'cb': f'jQuery{int(time.time() * 1000)}_{int(time.time() * 1000) + 1}',
             'param': json.dumps(param_data)
         }
-        
+
         try:
             response = requests.get(self.api_url, headers=self.headers, params=params, timeout=15)
-            
+
             if response.status_code != 200:
                 print(f"API请求失败，状态码: {response.status_code}")
                 return pd.DataFrame()
-            
+
             # 解析JSONP响应
             response_text = response.text
             if response_text.startswith('jQuery'):
@@ -85,65 +91,84 @@ class EastmoneyNewsCrawler:
                 json_str = response_text[start:end]
             else:
                 json_str = response_text
-            
+
             data = json.loads(json_str)
-            
+
             if 'result' not in data or not data['result'] or 'cmsArticleWebOld' not in data['result']:
                 print("未找到新闻数据")
                 return pd.DataFrame()
-            
+
             articles = data['result']['cmsArticleWebOld']
             print(f"API返回 {len(articles)} 条新闻")
-            
+
             # 筛选时间范围内的新闻
             news_data = []
+            content_success = 0
+            content_failed = 0
+
             for article in articles:
                 # 解析新闻时间
                 date_str = article.get('showTime') or article.get('date', '')
                 if not date_str:
                     continue
-                
+
                 try:
                     # 尝试多种时间格式
                     news_date = self._parse_date(date_str)
                     if not news_date:
                         continue
-                    
+
                     # 检查是否在时间范围内
                     if start_date <= news_date <= end_date:
                         title = self._clean_title(article.get('title', ''))
                         url = article.get('url', '')
-                        
-                        # 获取新闻内容
-                        content = self._get_content(url)
-                        
-                        if content:
-                            news_data.append({
-                                'date': news_date.strftime('%Y-%m-%d %H:%M:%S'),
-                                'content': f"{title}\n\n{content}"
-                            })
-                            print(f"✓ 获取新闻: {title[:30]}... ({news_date.strftime('%Y-%m-%d')})")
-                        
-                        # 移除等待时间，不再需要等待
-                        
+
+                        # 修复：先添加基本信息，然后尝试获取内容
+                        news_item = {
+                            'date': news_date.strftime('%Y-%m-%d %H:%M:%S'),
+                            'title': title,
+                            'url': url,
+                            'content': f"{title}"  # 至少包含标题
+                        }
+
+                        # 尝试获取新闻内容（不强制要求）
+                        try:
+                            full_content = self._get_content(url)
+                            if full_content and len(full_content.strip()) > 50:
+                                news_item['content'] = f"{title}\n\n{full_content}"
+                                content_success += 1
+                            else:
+                                # 使用API返回的摘要内容作为备选
+                                if 'content' in article and article['content']:
+                                    summary = self._clean_title(article['content'])
+                                    news_item['content'] = f"{title}\n\n{summary}"
+                                content_failed += 1
+                        except Exception as e:
+                            print(f"获取内容失败: {e}")
+                            content_failed += 1
+
+                        news_data.append(news_item)
+                        print(f"✓ 获取新闻: {title[:30]}... ({news_date.strftime('%Y-%m-%d')})")
+
                 except Exception as e:
                     print(f"处理新闻时出错: {e}")
                     continue
-            
+
             if news_data:
                 df = pd.DataFrame(news_data)
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date', ascending=False).reset_index(drop=True)
                 print(f"\n成功获取 {len(df)} 条符合时间范围的新闻")
+                print(f"内容获取统计: 成功 {content_success} 条，失败 {content_failed} 条")
                 return df
             else:
                 print("未获取到符合时间范围的新闻")
                 return pd.DataFrame()
-                
+
         except Exception as e:
             print(f"获取新闻失败: {e}")
             return pd.DataFrame()
-    
+
     def _parse_date(self, date_str):
         """解析各种格式的日期字符串"""
         date_formats = [
@@ -156,7 +181,7 @@ class EastmoneyNewsCrawler:
             '%m-%d %H:%M',
             '%m/%d %H:%M'
         ]
-        
+
         for fmt in date_formats:
             try:
                 parsed_date = datetime.strptime(date_str, fmt)
@@ -166,35 +191,38 @@ class EastmoneyNewsCrawler:
                 return parsed_date
             except ValueError:
                 continue
-        
+
         return None
-    
+
     def _clean_title(self, title):
         """清理标题中的HTML标签"""
         return re.sub(r'<[^>]+>', '', title).strip()
-    
+
     def _get_content(self, url):
-        """获取新闻正文内容"""
+        """获取新闻正文内容（增强版，更容错）"""
         if not url:
             return ""
-        
+
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = requests.get(url, headers=self.headers, timeout=5)  # 减少超时时间
             if response.status_code != 200:
                 return ""
-            
+
             soup = BeautifulSoup(response.text, 'html.parser')
-            
+
             # 尝试常见的内容选择器
             selectors = [
                 '.ArticleBody',
-                '.content', 
+                '.content',
                 '.article-content',
                 '#ContentBody',
                 'article',
-                '.post-content'
+                '.post-content',
+                '.article_body',  # 新增
+                '.text-content',  # 新增
+                '#article_body'   # 新增
             ]
-            
+
             for selector in selectors:
                 content_div = soup.select_one(selector)
                 if content_div:
@@ -202,7 +230,7 @@ class EastmoneyNewsCrawler:
                     text = re.sub(r'\s+', ' ', text)
                     if len(text) > 50:
                         return text
-            
+
             # 备用方案：获取所有段落
             paragraphs = soup.find_all('p')
             if paragraphs:
@@ -210,10 +238,10 @@ class EastmoneyNewsCrawler:
                 content = re.sub(r'\s+', ' ', content)
                 if len(content) > 50:
                     return content
-                    
+
         except Exception as e:
             print(f"获取内容失败: {e}")
-        
+
         return ""
 
     def save_to_csv(self, df, filename='news_data.csv', append=True):
@@ -269,9 +297,9 @@ if __name__ == "__main__":
     # 示例1: 指定时间范围
     df = crawler.get_news("紫金矿业",
                          sort_type='default',
-                         start_date='2025-06-01',  # 开始日期
+                         start_date='2025-03-01',  # 开始日期
                          end_date='2025-09-23',    # 结束日期
-                         max_news=1000)
+                         max_news=5000)
 
     # 示例2: 使用默认时间范围（最近7天）
     # df = crawler.get_news("紫金矿业", max_news=20)
@@ -285,7 +313,9 @@ if __name__ == "__main__":
         print("\n=== 前3条新闻 ===")
         for i, row in df.head(3).iterrows():
             print(f"\n{i+1}. 时间: {row['date']}")
-            print(f"内容: {row['content'][:100]}...")
+            print(f"标题: {row.get('title', 'N/A')}")
+            print(f"内容长度: {len(row['content'])} 字符")
+            print(f"内容预览: {row['content'][:100]}...")
 
         # 保存数据（追加模式）
         crawler.save_to_csv(df, 'news_data.csv', append=True)
