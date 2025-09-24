@@ -32,7 +32,7 @@ from scipy.stats import pearsonr, spearmanr
 from scipy import stats
 
 # 添加项目路径
-sys.path.append(r'D:\projects\q\myQ')
+sys.path.append(r'E:\projects\myQ')
 
 # 导入 market_data 模块
 try:
@@ -545,6 +545,79 @@ def merge_data(daily_scores, stock_data):
         merged_data['future_volume_change_3d'] = merged_data['Volume'].shift(-3) / merged_data['Volume'] - 1
         merged_data['future_volume_change_5d'] = merged_data['Volume'].shift(-5) / merged_data['Volume'] - 1
 
+        # 6. 新增波动性指标
+        print("✓ 计算波动性指标...")
+
+        # 日内振幅（当日高低价差/收盘价）
+        merged_data['daily_amplitude'] = (merged_data['High'] - merged_data['Low']) / merged_data['Close']
+
+        # 隔夜跳空（开盘价相对前收盘价变化）
+        merged_data['overnight_gap'] = merged_data['Open'] / merged_data['Close'].shift(1) - 1
+
+        # 日内波动率（高低价差/开盘价）
+        merged_data['intraday_volatility'] = (merged_data['High'] - merged_data['Low']) / merged_data['Open']
+
+        # 收盘偏离度（收盘价相对当日中位价的偏离）
+        merged_data['close_deviation'] = (merged_data['Close'] - (merged_data['High'] + merged_data['Low'])/2) / ((merged_data['High'] + merged_data['Low'])/2)
+
+        # ATR近似计算（真实波动范围）
+        merged_data['tr1'] = merged_data['High'] - merged_data['Low']  # 当日高低差
+        merged_data['tr2'] = np.abs(merged_data['High'] - merged_data['Close'].shift(1))  # 当日高与前收盘差
+        merged_data['tr3'] = np.abs(merged_data['Low'] - merged_data['Close'].shift(1))   # 当日低与前收盘差
+        merged_data['true_range'] = merged_data[['tr1', 'tr2', 'tr3']].max(axis=1)
+        merged_data['atr_5'] = merged_data['true_range'].rolling(5).mean()  # 5日ATR
+        merged_data['atr_10'] = merged_data['true_range'].rolling(10).mean()  # 10日ATR
+
+        # 清理临时列
+        merged_data.drop(['tr1', 'tr2', 'tr3'], axis=1, inplace=True)
+
+        # 7. 新增市场微观结构指标
+        print("✓ 计算市场微观结构指标...")
+
+        # 换手率（成交量/流通股本的代理指标）
+        # 使用成交量的相对变化作为换手率的代理
+        volume_ma_20 = merged_data['Volume'].rolling(20).mean()
+        merged_data['turnover_ratio'] = merged_data['Volume'] / volume_ma_20
+
+        # 量价配合度（价格变化方向与成交量变化方向的一致性）
+        price_direction = np.sign(merged_data['price_change'])
+        volume_direction = np.sign(merged_data['prev_volume_change'])
+        merged_data['price_volume_sync'] = price_direction * volume_direction
+
+        # 相对强弱（当日收益vs前5日平均收益）
+        avg_return_5d = merged_data['price_change'].rolling(5).mean()
+        merged_data['relative_strength'] = merged_data['price_change'] / (avg_return_5d + 1e-8)  # 避免除零
+
+        # 8. 新增时间窗口细分
+        print("✓ 计算时间窗口细分指标...")
+
+        # 开盘15分钟收益率的代理（开盘到最高价的比例）
+        merged_data['open_strength'] = (merged_data['High'] - merged_data['Open']) / merged_data['Open']
+
+        # 尾盘30分钟收益率的代理（最低价到收盘价的比例）
+        merged_data['close_strength'] = (merged_data['Close'] - merged_data['Low']) / merged_data['Low']
+
+        # 盘中振幅相对隔夜跳空的比较
+        merged_data['intraday_vs_overnight'] = merged_data['daily_amplitude'] / (np.abs(merged_data['overnight_gap']) + 1e-8)
+
+        # 9. 未来波动性指标
+        print("✓ 计算未来波动性指标...")
+
+        # 未来振幅
+        merged_data['future_amplitude_1d'] = merged_data['daily_amplitude'].shift(-1)
+        merged_data['future_amplitude_3d'] = merged_data['daily_amplitude'].shift(-3)
+        merged_data['future_amplitude_5d'] = merged_data['daily_amplitude'].shift(-5)
+
+        # 未来ATR
+        merged_data['future_atr_1d'] = merged_data['atr_5'].shift(-1)
+        merged_data['future_atr_3d'] = merged_data['atr_5'].shift(-3)
+        merged_data['future_atr_5d'] = merged_data['atr_5'].shift(-5)
+
+        # 未来换手率
+        merged_data['future_turnover_1d'] = merged_data['turnover_ratio'].shift(-1)
+        merged_data['future_turnover_3d'] = merged_data['turnover_ratio'].shift(-3)
+        merged_data['future_turnover_5d'] = merged_data['turnover_ratio'].shift(-5)
+
         print(f"✓ 时间范围: {merged_data['date'].min().date()} 到 {merged_data['date'].max().date()}")
         print("\n合并数据预览:")
 
@@ -914,6 +987,72 @@ def plot_correlation_analysis(merged_data):
                 column_mapping[col] = '3-Day Return'
             elif col == 'future_return_5d':
                 column_mapping[col] = '5-Day Return'
+
+    # 新增波动性指标
+    volatility_columns = ['daily_amplitude', 'overnight_gap', 'intraday_volatility', 'atr_5', 'atr_10']
+    for col in volatility_columns:
+        if col in merged_data.columns:
+            correlation_columns.append(col)
+            if col == 'daily_amplitude':
+                column_mapping[col] = 'Daily Amplitude'
+            elif col == 'overnight_gap':
+                column_mapping[col] = 'Overnight Gap'
+            elif col == 'intraday_volatility':
+                column_mapping[col] = 'Intraday Vol'
+            elif col == 'atr_5':
+                column_mapping[col] = 'ATR-5'
+            elif col == 'atr_10':
+                column_mapping[col] = 'ATR-10'
+
+    # 未来波动性指标
+    future_volatility_columns = ['future_amplitude_1d', 'future_amplitude_3d', 'future_atr_1d', 'future_atr_3d']
+    for col in future_volatility_columns:
+        if col in merged_data.columns:
+            correlation_columns.append(col)
+            if col == 'future_amplitude_1d':
+                column_mapping[col] = 'Future Amplitude 1D'
+            elif col == 'future_amplitude_3d':
+                column_mapping[col] = 'Future Amplitude 3D'
+            elif col == 'future_atr_1d':
+                column_mapping[col] = 'Future ATR 1D'
+            elif col == 'future_atr_3d':
+                column_mapping[col] = 'Future ATR 3D'
+
+    # 市场微观结构指标
+    microstructure_columns = ['turnover_ratio', 'price_volume_sync', 'relative_strength']
+    for col in microstructure_columns:
+        if col in merged_data.columns:
+            correlation_columns.append(col)
+            if col == 'turnover_ratio':
+                column_mapping[col] = 'Turnover Ratio'
+            elif col == 'price_volume_sync':
+                column_mapping[col] = 'Price-Volume Sync'
+            elif col == 'relative_strength':
+                column_mapping[col] = 'Relative Strength'
+
+    # 未来交易指标
+    future_trading_columns = ['future_turnover_1d', 'future_turnover_3d', 'future_volume_change_1d']
+    for col in future_trading_columns:
+        if col in merged_data.columns:
+            correlation_columns.append(col)
+            if col == 'future_turnover_1d':
+                column_mapping[col] = 'Future Turnover 1D'
+            elif col == 'future_turnover_3d':
+                column_mapping[col] = 'Future Turnover 3D'
+            elif col == 'future_volume_change_1d':
+                column_mapping[col] = 'Future Volume Change 1D'
+
+    # 时间窗口细分指标
+    timewindow_columns = ['open_strength', 'close_strength', 'intraday_vs_overnight']
+    for col in timewindow_columns:
+        if col in merged_data.columns:
+            correlation_columns.append(col)
+            if col == 'open_strength':
+                column_mapping[col] = 'Open Strength'
+            elif col == 'close_strength':
+                column_mapping[col] = 'Close Strength'
+            elif col == 'intraday_vs_overnight':
+                column_mapping[col] = 'Intraday vs Overnight'
 
     # 添加收盘价作为参考
     if 'Close' in merged_data.columns:
@@ -1392,7 +1531,97 @@ def calculate_correlation_statistics(merged_data):
         else:
             print("   无加权评分数据")
 
-        # 6. 相关性强度解释和比较
+        # 6. 新增波动性指标相关性分析
+        print(f"\n6. 新闻评分与未来波动性指标相关性分析:")
+        try:
+            results['volatility'] = {}
+            volatility_future_cols = {
+                'future_amplitude_1d': '未来1天振幅',
+                'future_amplitude_3d': '未来3天振幅',
+                'future_atr_1d': '未来1天ATR',
+                'future_atr_3d': '未来3天ATR'
+            }
+
+            for vol_col, vol_name in volatility_future_cols.items():
+                if vol_col in analysis_data.columns:
+                    vol_data = analysis_data.dropna(subset=[score_col, vol_col])
+                    if len(vol_data) >= 3:
+                        corr_val, p_val = pearsonr(vol_data[score_col], vol_data[vol_col])
+                        ic_metrics = calculate_ic_metrics(vol_data[score_col], vol_data[vol_col])
+
+                        results['volatility'][vol_col] = {
+                            'correlation': corr_val,
+                            'p_value': p_val,
+                            'sample_size': len(vol_data),
+                            'rank_ic': ic_metrics['rank_ic']
+                        }
+                        significance = "**显著**" if p_val < 0.05 else "不显著"
+                        print(f"   综合评分 vs {vol_name}: r = {corr_val:.4f}, Rank IC = {ic_metrics['rank_ic']:.4f} ({significance}, n={len(vol_data)})")
+                    else:
+                        print(f"   综合评分 vs {vol_name}: 数据不足")
+        except Exception as e:
+            print(f"   波动性指标相关性计算失败: {e}")
+
+        # 7. 新增交易指标相关性分析
+        print(f"\n7. 新闻评分与未来交易指标相关性分析:")
+        try:
+            results['trading'] = {}
+            trading_future_cols = {
+                'future_turnover_1d': '未来1天换手率',
+                'future_turnover_3d': '未来3天换手率',
+                'future_volume_change_1d': '未来1天成交量变化'
+            }
+
+            for trade_col, trade_name in trading_future_cols.items():
+                if trade_col in analysis_data.columns:
+                    trade_data = analysis_data.dropna(subset=[score_col, trade_col])
+                    if len(trade_data) >= 3:
+                        corr_val, p_val = pearsonr(trade_data[score_col], trade_data[trade_col])
+                        ic_metrics = calculate_ic_metrics(trade_data[score_col], trade_data[trade_col])
+
+                        results['trading'][trade_col] = {
+                            'correlation': corr_val,
+                            'p_value': p_val,
+                            'sample_size': len(trade_data),
+                            'rank_ic': ic_metrics['rank_ic']
+                        }
+                        significance = "**显著**" if p_val < 0.05 else "不显著"
+                        print(f"   综合评分 vs {trade_name}: r = {corr_val:.4f}, Rank IC = {ic_metrics['rank_ic']:.4f} ({significance}, n={len(trade_data)})")
+                    else:
+                        print(f"   综合评分 vs {trade_name}: 数据不足")
+        except Exception as e:
+            print(f"   交易指标相关性计算失败: {e}")
+
+        # 8. 时间窗口细分指标分析
+        print(f"\n8. 新闻评分与时间窗口细分指标相关性分析:")
+        try:
+            results['timewindow'] = {}
+            timewindow_cols = {
+                'open_strength': '开盘强度',
+                'close_strength': '收盘强度',
+                'overnight_gap': '隔夜跳空',
+                'intraday_vs_overnight': '盘中vs隔夜比较'
+            }
+
+            for tw_col, tw_name in timewindow_cols.items():
+                if tw_col in analysis_data.columns:
+                    tw_data = analysis_data.dropna(subset=[score_col, tw_col])
+                    if len(tw_data) >= 3:
+                        corr_val, p_val = pearsonr(tw_data[score_col], tw_data[tw_col])
+
+                        results['timewindow'][tw_col] = {
+                            'correlation': corr_val,
+                            'p_value': p_val,
+                            'sample_size': len(tw_data)
+                        }
+                        significance = "**显著**" if p_val < 0.05 else "不显著"
+                        print(f"   综合评分 vs {tw_name}: r = {corr_val:.4f} ({significance}, n={len(tw_data)})")
+                    else:
+                        print(f"   综合评分 vs {tw_name}: 数据不足")
+        except Exception as e:
+            print(f"   时间窗口指标相关性计算失败: {e}")
+
+        # 9. 相关性强度解释和比较
         def interpret_correlation(r):
             abs_r = abs(r)
             if abs_r < 0.1:
@@ -1485,12 +1714,23 @@ def calculate_correlation_statistics(merged_data):
         # 按绝对值排序
         correlations.sort(key=lambda x: abs(x[2]), reverse=True)
 
-        print("   === 排序结果 (按相关性强度降序) ===")
-        for i, (category, period, corr, p_val) in enumerate(correlations[:10]):  # 显示前10个最强相关性
+        print("   === 排序结果 (按相关性强度降序，包含新指标) ===")
+        for i, (category, period, corr, p_val) in enumerate(correlations[:15]):  # 显示前15个最强相关性
             direction = '正' if corr > 0 else '负'
             strength = interpret_correlation(corr)
             significance = "**" if p_val < 0.05 else ""
-            print(f"   {i+1}. {category}_未来{period}: r={corr:.4f} ({strength}, {direction}相关){significance}")
+
+            # 格式化显示名称
+            if 'amplitude' in period or 'atr' in period:
+                display_name = f"{category}_波动性指标_{period}"
+            elif 'turnover' in period or 'volume' in period:
+                display_name = f"{category}_交易指标_{period}"
+            elif period in ['open_strength', 'close_strength', 'overnight_gap']:
+                display_name = f"{category}_时间窗口_{period}"
+            else:
+                display_name = f"{category}_未来{period}"
+
+            print(f"   {i+1}. {display_name}: r={corr:.4f} ({strength}, {direction}相关){significance}")
 
         # 8. 基于IC分析的投资建议
         print(f"\n8. 基于IC分析的量化投资建议:")
@@ -1618,8 +1858,8 @@ def main():
     # 文件路径配置
     # news_data_path = r'E:\projects\myQ\scripts\news_scores_result.csv'
     # output_path = r'E:\projects\myQ\scripts\news_price_analysis_result.csv'
-    news_data_path = r'D:\projects\q\myQ\scripts\news_scores_result.csv'
-    output_path = r'D:\projects\q\myQ\scripts\news_price_analysis_result.csv'
+    news_data_path = r'E:\projects\myQ\scripts\news_scores_result_1y_zijin.csv'
+    output_path = r'E:\projects\myQ\scripts\news_price_analysis_result_1y.csv'
 
     # 检查输入文件是否存在
     if not os.path.exists(news_data_path):
