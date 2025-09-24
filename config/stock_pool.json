@@ -1,0 +1,431 @@
+{
+  "stock_database": [
+    {
+      "stock_name": "贵州茅台",
+      "stock_code": "600519",
+      "industry": "白酒行业",
+      "main_business": "高端白酒的生产和销售，主要产品包括茅台酒及系列酒",
+      "market_cap": "2.3万亿元"
+    },
+    {
+      "stock_name": "宁德时代",
+      "stock_code": "300750",
+      "industry": "新能源电池",
+      "main_business": "动力电池系统、储能系统的研发、生产和销售",
+      "market_cap": "7500亿元"
+    },
+    {
+      "stock_name": "比亚迪",
+      "stock_code": "002594",
+      "industry": "新能源汽车",
+      "main_business": "新能源汽车及传统燃油汽车的研发、生产和销售，电池业务",
+      "market_cap": "8000亿元"
+    },
+    {
+      "stock_name": "腾讯控股",
+      "stock_code": "00700",
+      "industry": "互联网科技",
+      "main_business": "社交网络、网络游戏、数字内容、金融科技及企业服务",
+      "market_cap": "3.2万亿港元"
+    },
+    {
+      "stock_name": "阿里巴巴",
+      "stock_code": "09988",
+      "industry": "电子商务",
+      "main_business": "电子商务平台、云计算、数字媒体娱乐、本地生活服务",
+      "market_cap": "1.8万亿港元"
+    },
+    {
+      "stock_name": "中国移动",
+      "stock_code": "600941",
+      "industry": "电信运营",
+      "main_business": "移动通信服务、宽带服务、信息服务和数字化服务",
+      "market_cap": "1.9万亿元"
+    },
+    {
+      "stock_name": "工商银行",
+      "stock_code": "601398",
+      "industry": "银行业",
+      "main_business": "商业银行业务，包括公司银行、个人银行和金融市场业务",
+      "market_cap": "1.8万亿元"
+    },
+    {
+      "stock_name": "中国平安",
+      "stock_code": "601318",
+      "industry": "保险业",
+      "main_business": "保险、银行、投资等综合金融服务",
+      "market_cap": "9000亿元"
+    },
+    {
+      "stock_name": "隆基绿能",
+      "stock_code": "601012",
+      "industry": "光伏产业",
+      "main_business": "单晶硅棒、硅片、电池组件的研发、生产、销售",
+      "market_cap": "2200亿元"
+    },
+    {
+      "stock_name": "中芯国际",
+      "stock_code": "688981",
+      "industry": "半导体制造",
+      "main_business": "集成电路晶圆代工制造服务",
+      "market_cap": "3500亿元"
+    },
+    {
+      "stock_name": "药明康德",
+      "stock_code": "603259",
+      "industry": "医药研发服务",
+      "main_business": "为全球生物医药行业提供全方位、一体化的新药研发和生产服务",
+      "market_cap": "2800亿元"
+    },
+    {
+      "stock_name": "片仔癀",
+      "stock_code": "600436",
+      "industry": "中药制造",
+      "main_business": "传统中药及相关产品的研发、生产和销售",
+      "market_cap": "1600亿元"
+    },
+    {
+      "stock_name": "恒瑞医药",
+      "stock_code": "600276",
+      "industry": "化学制药",
+      "main_business": "抗肿瘤药、手术用药、造影剂等创新药物的研发、生产、销售",
+      "market_cap": "2500亿元"
+    },
+    {
+      "stock_name": "海康威视",
+      "stock_code": "002415",
+      "industry": "安防监控",
+      "main_business": "视频监控产品及解决方案的设计、研发、生产、销售和服务",
+      "market_cap": "3200亿元"
+    },
+    {
+      "stock_name": "美的集团",
+      "stock_code": "000333",
+      "industry": "家电制造",
+      "main_business": "家用电器、暖通空调、机器人与自动化系统、智能供应链",
+      "market_cap": "4500亿元"
+    },
+    {
+      "stock_name": "格力电器",
+      "stock_code": "000651",
+      "industry": "空调制造",
+      "main_business": "家用空调、中央空调、空气能热水器等产品的研发、生产、销售",
+      "market_cap": "2000亿元"
+    },
+    {
+      "stock_name": "五粮液",
+      "stock_code": "000858",
+      "industry": "白酒行业",
+      "main_business": "五粮液系列酒品的生产和销售",
+      "market_cap": "7500亿元"
+    },
+    {
+      "stock_name": "万科A",
+      "stock_code": "000002",
+      "industry": "房地产开发",
+      "main_business": "房地产开发、物业服务、商业开发运营",
+      "market_cap": "1200亿元"
+    },
+    {
+      "stock_name": "保利发展",
+      "stock_code": "600048",
+      "industry": "房地产开发",
+      "main_business": "房地产开发、房地产销售、物业管理服务",
+      "market_cap": "1100亿元"
+    },
+    {
+      "stock_name": "中国石油",
+      "stock_code": "601857",
+      "industry": "石油天然气",
+      "main_business": "原油和天然气的勘探、开发、生产和销售，炼油化工",
+      "market_cap": "1.1万亿元"
+    },
+    {
+      "stock_name": "中国石化",
+      "stock_code": "600028",
+      "industry": "石油化工",
+      "main_business": "石油天然气勘探开发、炼油、化工、销售和贸易",
+      "market_cap": "6500亿元"
+    },
+    {
+      "stock_name": "中国建筑",
+      "stock_code": "601668",
+      "industry": "建筑工程",
+      "main_business": "房屋建筑工程、基础设施建设、房地产开发",
+      "market_cap": "2200亿元"
+    },
+    {
+      "stock_name": "三一重工",
+      "stock_code": "600031",
+      "industry": "工程机械",
+      "main_business": "混凝土机械、挖掘机械、起重机械、筑路机械等工程机械",
+      "market_cap": "1800亿元"
+    },
+    {
+      "stock_name": "中联重科",
+      "stock_code": "000157",
+      "industry": "工程机械",
+      "main_business": "工程机械、农业机械、金融服务等业务",
+      "market_cap": "800亿元"
+    },
+    {
+      "stock_name": "潍柴动力",
+      "stock_code": "000338",
+      "industry": "发动机制造",
+      "main_business": "柴油发动机、汽车及零部件、船舶动力系统",
+      "market_cap": "1200亿元"
+    },
+    {
+      "stock_name": "长安汽车",
+      "stock_code": "000625",
+      "industry": "汽车制造",
+      "main_business": "乘用车、商用车研发、生产、销售",
+      "market_cap": "1000亿元"
+    },
+    {
+      "stock_name": "上汽集团",
+      "stock_code": "600104",
+      "industry": "汽车制造",
+      "main_business": "整车、零部件的研发、生产、销售，汽车服务贸易",
+      "market_cap": "1800亿元"
+    },
+    {
+      "stock_name": "中国中车",
+      "stock_code": "601766",
+      "industry": "轨道交通装备",
+      "main_business": "铁路机车车辆、动车组、城轨车辆等轨道交通装备",
+      "market_cap": "2000亿元"
+    },
+    {
+      "stock_name": "中国中铁",
+      "stock_code": "601390",
+      "industry": "基建工程",
+      "main_business": "基础设施建设、勘察设计咨询、工程设备和零部件制造",
+      "market_cap": "1500亿元"
+    },
+    {
+      "stock_name": "中国铁建",
+      "stock_code": "601186",
+      "industry": "基建工程",
+      "main_business": "工程承包、勘察设计咨询、工业制造、房地产开发",
+      "market_cap": "1400亿元"
+    },
+    {
+      "stock_name": "紫金矿业",
+      "stock_code": "601899",
+      "industry": "有色金属",
+      "main_business": "黄金、铜、锌等有色金属及黑色金属的勘查、开采、冶炼和销售",
+      "market_cap": "4500亿元"
+    },
+    {
+      "stock_name": "中国神华",
+      "stock_code": "601088",
+      "industry": "煤炭开采",
+      "main_business": "煤炭生产销售、发电、铁路、港口、航运、煤化工",
+      "market_cap": "6500亿元"
+    },
+    {
+      "stock_name": "宝钢股份",
+      "stock_code": "600019",
+      "industry": "钢铁行业",
+      "main_business": "钢铁产品的生产和销售",
+      "market_cap": "3200亿元"
+    },
+    {
+      "stock_name": "中国铝业",
+      "stock_code": "601600",
+      "industry": "有色金属",
+      "main_business": "氧化铝、原铝及铝合金产品的生产销售",
+      "market_cap": "1800亿元"
+    },
+    {
+      "stock_name": "海螺水泥",
+      "stock_code": "600585",
+      "industry": "建材行业",
+      "main_business": "水泥及商品熟料的生产销售",
+      "market_cap": "1500亿元"
+    },
+    {
+      "stock_name": "万华化学",
+      "stock_code": "600309",
+      "industry": "化工行业",
+      "main_business": "异氰酸酯、聚氨酯等化工产品的研发、生产和销售",
+      "market_cap": "2800亿元"
+    },
+    {
+      "stock_name": "中国联通",
+      "stock_code": "600050",
+      "industry": "电信运营",
+      "main_business": "移动通信、固网通信、宽带数据及其他相关增值服务",
+      "market_cap": "2200亿元"
+    },
+    {
+      "stock_name": "中国电信",
+      "stock_code": "601728",
+      "industry": "电信运营",
+      "main_business": "固网通信、移动通信、互联网应用及信息服务",
+      "market_cap": "3800亿元"
+    },
+    {
+      "stock_name": "立讯精密",
+      "stock_code": "002475",
+      "industry": "电子制造",
+      "main_business": "连接器、声学产品、无线充电、马达产品等精密制造",
+      "market_cap": "2200亿元"
+    },
+    {
+      "stock_name": "京东方A",
+      "stock_code": "000725",
+      "industry": "显示面板",
+      "main_business": "显示器件、智慧系统、健康服务事业",
+      "market_cap": "1600亿元"
+    },
+    {
+      "stock_name": "长江电力",
+      "stock_code": "600900",
+      "industry": "水力发电",
+      "main_business": "水力发电、配售电业务",
+      "market_cap": "5500亿元"
+    },
+    {
+      "stock_name": "华能国际",
+      "stock_code": "600011",
+      "industry": "火力发电",
+      "main_business": "电力生产及销售，主要以火力发电为主",
+      "market_cap": "1200亿元"
+    },
+    {
+      "stock_name": "国电南瑞",
+      "stock_code": "600406",
+      "industry": "电力设备",
+      "main_business": "电网自动化、发电及水利环保、工业控制等产品和服务",
+      "market_cap": "1800亿元"
+    },
+    {
+      "stock_name": "中国人寿",
+      "stock_code": "601628",
+      "industry": "人寿保险",
+      "main_business": "人寿保险、健康险、意外险等保险业务及投资业务",
+      "market_cap": "5000亿元"
+    },
+    {
+      "stock_name": "招商银行",
+      "stock_code": "600036",
+      "industry": "商业银行",
+      "main_business": "商业银行业务，包括企业银行、零售银行、金融市场业务",
+      "market_cap": "1.2万亿元"
+    },
+    {
+      "stock_name": "建设银行",
+      "stock_code": "601939",
+      "industry": "商业银行",
+      "main_business": "商业银行业务、投资银行业务、保险业务等综合金融服务",
+      "market_cap": "1.6万亿元"
+    },
+    {
+      "stock_name": "农业银行",
+      "stock_code": "601288",
+      "industry": "商业银行",
+      "main_business": "商业银行业务，重点服务三农、县域经济",
+      "market_cap": "1.3万亿元"
+    },
+    {
+      "stock_name": "中信证券",
+      "stock_code": "600030",
+      "industry": "证券业",
+      "main_business": "证券经纪、投资银行、资产管理、自营交易等证券业务",
+      "market_cap": "3200亿元"
+    },
+    {
+      "stock_name": "东方财富",
+      "stock_code": "300059",
+      "industry": "互联网金融",
+      "main_business": "互联网金融信息服务、证券经纪、基金销售等业务",
+      "market_cap": "2500亿元"
+    },
+    {
+      "stock_name": "顺丰控股",
+      "stock_code": "002352",
+      "industry": "物流快递",
+      "main_business": "综合性快递物流服务",
+      "market_cap": "2800亿元"
+    },
+    {
+      "stock_name": "中通快递",
+      "stock_code": "ZTO",
+      "industry": "物流快递",
+      "main_business": "快递服务网络运营",
+      "market_cap": "200亿美元"
+    },
+    {
+      "stock_name": "海天味业",
+      "stock_code": "603288",
+      "industry": "调味品制造",
+      "main_business": "酱油、蚝油、调味酱等调味品的研发、生产和销售",
+      "market_cap": "3500亿元"
+    },
+    {
+      "stock_name": "伊利股份",
+      "stock_code": "600887",
+      "industry": "乳制品制造",
+      "main_business": "各类乳制品及健康食品的加工、制造与销售",
+      "market_cap": "2000亿元"
+    },
+    {
+      "stock_name": "牧原股份",
+      "stock_code": "002714",
+      "industry": "畜牧养殖",
+      "main_business": "生猪的养殖与销售",
+      "market_cap": "2200亿元"
+    },
+    {
+      "stock_name": "温氏股份",
+      "stock_code": "300498",
+      "industry": "畜牧养殖",
+      "main_business": "肉猪、肉鸡等畜禽的养殖和销售",
+      "market_cap": "1500亿元"
+    },
+    {
+      "stock_name": "中国国航",
+      "stock_code": "601111",
+      "industry": "航空运输",
+      "main_business": "国内外航空客货运输服务",
+      "market_cap": "1200亿元"
+    },
+    {
+      "stock_name": "南方航空",
+      "stock_code": "600029",
+      "industry": "航空运输",
+      "main_business": "国内外航空运输服务及相关服务",
+      "market_cap": "1100亿元"
+    },
+    {
+      "stock_name": "上海机场",
+      "stock_code": "600009",
+      "industry": "机场服务",
+      "main_business": "航空性业务和非航空性业务",
+      "market_cap": "1300亿元"
+    },
+    {
+      "stock_name": "东方航空",
+      "stock_code": "600115",
+      "industry": "航空运输",
+      "main_business": "国内外航空运输、航空食品、进出口贸易等",
+      "market_cap": "800亿元"
+    },
+    {
+      "stock_name": "小米集团",
+      "stock_code": "01810",
+      "industry": "智能手机",
+      "main_business": "智能手机、IoT与生活消费产品、互联网服务",
+      "market_cap": "3500亿港元"
+    },
+    {
+      "stock_name": "歌尔股份",
+      "stock_code": "002241",
+      "industry": "消费电子",
+      "main_business": "声学器件、传感器、消费电子产品等的研发制造",
+      "market_cap": "800亿元"
+    }
+  ]
+}

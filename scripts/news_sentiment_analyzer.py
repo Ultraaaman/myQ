@@ -611,19 +611,26 @@ if __name__ == "__main__":
     scorer = NewsScorer(openrouter_key)
 
     # 股票信息
-    stock_info = {
-        'stock_name': '紫金矿业',
-        'stock_code': '601899',
-        'industry': '有色金属',
-        'main_business': '黄金、铜等有色金属的开采、选矿、冶炼及销售',
-        'market_cap': '3000亿元'
+    # stock_info = {
+    #     'stock_name': '紫金矿业',
+    #     'stock_code': '601899',
+    #     'industry': '有色金属',
+    #     'main_business': '黄金、铜等有色金属的开采、选矿、冶炼及销售',
+    #     'market_cap': '3000亿元'
+    # }
+    stock_info={
+      "stock_name": "盐津铺子",
+      "stock_code": "002847",
+      "industry": "休闲食品",
+      "main_business": "烘焙食品、辣条及其他休闲食品的研发、生产、销售",
+      "market_cap": "150亿元"
     }
 
     # 处理新闻评分（智能去重）
     results_df = scorer.process_news_batch(
-        csv_file='tushare_news.csv',
+        csv_file='tushare_news_yanjinpuzi.csv',
         stock_info=stock_info,
-        output_file='news_scores_result_1y_zijin.csv',
+        output_file='news_scores_result_1y_yanjin.csv',
         batch_size=5  # 参数保留但不再使用批次逻辑
     )
 

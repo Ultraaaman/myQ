@@ -12,7 +12,11 @@
       "WebFetch(domain:akshare.akfamily.xyz)",
       "Bash(C:Users10442miniconda3envsquantpython.exe test_strategies_601899.py)",
       "Bash(C:Users10442miniconda3envsquantpython.exe test_crawler.py)",
-      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" test_crawler.py)"
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" test_crawler.py)",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts\\opening_strength_news_analysis.py\")",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" -c \"import sys; sys.path.append(''D:/projects/q/myQ/scripts''); from daily_news_analyzer import DailyNewsAnalyzer; print(''✅ DailyNewsAnalyzer imported successfully'')\")",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts\\daily_news_analyzer.py\")",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts/daily_news_analyzer.py\")"
     ],
     "deny": [],
     "ask": []

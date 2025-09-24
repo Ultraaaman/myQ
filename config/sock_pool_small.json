@@ -1,0 +1,396 @@
+{
+  "small_cap_stock_database": [
+    {
+      "stock_name": "华测检测",
+      "stock_code": "300012",
+      "industry": "检测服务",
+      "main_business": "为企业和政府提供一站式检验、检测、认证及技术服务",
+      "market_cap": "400亿元"
+    },
+    {
+      "stock_name": "苏试试验",
+      "stock_code": "300416",
+      "industry": "环境试验设备",
+      "main_business": "环境与可靠性试验设备及试验服务的提供商",
+      "market_cap": "120亿元"
+    },
+    {
+      "stock_name": "奥普特",
+      "stock_code": "688686",
+      "industry": "机器视觉",
+      "main_business": "机器视觉核心软硬件产品的研发、生产和销售",
+      "market_cap": "180亿元"
+    },
+    {
+      "stock_name": "新产业",
+      "stock_code": "300832",
+      "industry": "体外诊断",
+      "main_business": "体外诊断试剂及仪器的研发、生产、销售和服务",
+      "market_cap": "450亿元"
+    },
+    {
+      "stock_name": "华大智造",
+      "stock_code": "688114",
+      "industry": "基因测序设备",
+      "main_business": "生命科学与医疗设备的研发、生产和销售",
+      "market_cap": "350亿元"
+    },
+    {
+      "stock_name": "奇安信",
+      "stock_code": "688561",
+      "industry": "网络安全",
+      "main_business": "网络安全产品和服务",
+      "market_cap": "400亿元"
+    },
+    {
+      "stock_name": "深信服",
+      "stock_code": "300454",
+      "industry": "企业级IT",
+      "main_business": "企业级安全、云计算及IT基础设施解决方案",
+      "market_cap": "350亿元"
+    },
+    {
+      "stock_name": "金山办公",
+      "stock_code": "688111",
+      "industry": "办公软件",
+      "main_business": "办公软件产品及服务的设计研发及销售推广",
+      "market_cap": "1200亿元"
+    },
+    {
+      "stock_name": "用友网络",
+      "stock_code": "600588",
+      "industry": "企业管理软件",
+      "main_business": "企业云服务、软件、金融服务",
+      "market_cap": "400亿元"
+    },
+    {
+      "stock_name": "汇川技术",
+      "stock_code": "300124",
+      "industry": "工业自动化",
+      "main_business": "工业自动化控制产品的研发、生产和销售",
+      "market_cap": "1500亿元"
+    },
+    {
+      "stock_name": "信捷电气",
+      "stock_code": "603416",
+      "industry": "工业自动化",
+      "main_business": "工业自动化控制产品研发、生产和销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "拓普集团",
+      "stock_code": "601689",
+      "industry": "汽车零部件",
+      "main_business": "汽车NVH减震产品及轻量化产品的研发、生产和销售",
+      "market_cap": "800亿元"
+    },
+    {
+      "stock_name": "华域汽车",
+      "stock_code": "600741",
+      "industry": "汽车零部件",
+      "main_business": "汽车零部件系统集成供应",
+      "market_cap": "600亿元"
+    },
+    {
+      "stock_name": "埃斯顿",
+      "stock_code": "002747",
+      "industry": "工业机器人",
+      "main_business": "工业机器人及智能制造系统的研发、生产、销售和服务",
+      "market_cap": "280亿元"
+    },
+    {
+      "stock_name": "克来机电",
+      "stock_code": "603960",
+      "industry": "柔性自动化装备",
+      "main_business": "柔性自动化装备与工业机器人系统应用",
+      "market_cap": "80亿元"
+    },
+    {
+      "stock_name": "普冉股份",
+      "stock_code": "688766",
+      "industry": "存储芯片",
+      "main_business": "NOR Flash芯片和EEPROM芯片的设计和销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "思瑞浦",
+      "stock_code": "688536",
+      "industry": "模拟芯片",
+      "main_business": "高性能模拟芯片的研发和销售",
+      "market_cap": "450亿元"
+    },
+    {
+      "stock_name": "纳芯微",
+      "stock_code": "688052",
+      "industry": "模拟芯片",
+      "main_business": "模拟及混合信号芯片的研发和销售",
+      "market_cap": "280亿元"
+    },
+    {
+      "stock_name": "寒武纪",
+      "stock_code": "688256",
+      "industry": "AI芯片",
+      "main_business": "人工智能芯片及相关产品的研发、设计和销售",
+      "market_cap": "800亿元"
+    },
+    {
+      "stock_name": "芯原股份",
+      "stock_code": "688521",
+      "industry": "芯片设计",
+      "main_business": "芯片设计平台即服务(Silicon Platform as a Service)",
+      "market_cap": "300亿元"
+    },
+    {
+      "stock_name": "德方纳米",
+      "stock_code": "300769",
+      "industry": "锂电池材料",
+      "main_business": "纳米级锂离子电池正极材料的研发、生产和销售",
+      "market_cap": "400亿元"
+    },
+    {
+      "stock_name": "璞泰来",
+      "stock_code": "603659",
+      "industry": "锂电池材料",
+      "main_business": "锂离子电池负极材料、隔膜、PVDF、铝塑膜等材料",
+      "market_cap": "600亿元"
+    },
+    {
+      "stock_name": "恩捷股份",
+      "stock_code": "002812",
+      "industry": "锂电池隔膜",
+      "main_business": "锂电池隔膜、包装材料的研发、生产和销售",
+      "market_cap": "1000亿元"
+    },
+    {
+      "stock_name": "科达利",
+      "stock_code": "002850",
+      "industry": "锂电池结构件",
+      "main_business": "锂电池精密结构件的研发、生产和销售",
+      "market_cap": "300亿元"
+    },
+    {
+      "stock_name": "阳光电源",
+      "stock_code": "300274",
+      "industry": "光伏逆变器",
+      "main_business": "太阳能光伏逆变器、储能系统等新能源电力电源设备",
+      "market_cap": "1800亿元"
+    },
+    {
+      "stock_name": "固德威",
+      "stock_code": "688390",
+      "industry": "光伏逆变器",
+      "main_business": "太阳能逆变器及储能系统的研发、生产、销售",
+      "market_cap": "400亿元"
+    },
+    {
+      "stock_name": "禾迈股份",
+      "stock_code": "688032",
+      "industry": "微型逆变器",
+      "main_business": "太阳能发电系统中微型逆变器及监控系统",
+      "market_cap": "350亿元"
+    },
+    {
+      "stock_name": "亿纬锂能",
+      "stock_code": "300014",
+      "industry": "锂电池",
+      "main_business": "消费电池、动力电池、储能电池的研发、生产和销售",
+      "market_cap": "1200亿元"
+    },
+    {
+      "stock_name": "欣旺达",
+      "stock_code": "300207",
+      "industry": "锂电池模组",
+      "main_business": "锂离子电池模组的研发、设计、生产及销售",
+      "market_cap": "500亿元"
+    },
+    {
+      "stock_name": "捷佳伟创",
+      "stock_code": "300724",
+      "industry": "光伏设备",
+      "main_business": "晶体硅太阳能电池生产设备的研发、生产和销售",
+      "market_cap": "300亿元"
+    },
+    {
+      "stock_name": "迈为股份",
+      "stock_code": "300751",
+      "industry": "光伏设备",
+      "main_business": "太阳能电池片丝网印刷生产线设备",
+      "market_cap": "800亿元"
+    },
+    {
+      "stock_name": "金辰股份",
+      "stock_code": "603396",
+      "industry": "光伏设备",
+      "main_business": "光伏自动化生产设备的研发、生产和销售",
+      "market_cap": "150亿元"
+    },
+    {
+      "stock_name": "凯盛科技",
+      "stock_code": "600552",
+      "industry": "光伏玻璃设备",
+      "main_business": "显示材料、新能源材料、信息显示器件的研发制造",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "福莱特",
+      "stock_code": "601865",
+      "industry": "光伏玻璃",
+      "main_business": "太阳能光伏玻璃、建筑节能玻璃等产品",
+      "market_cap": "600亿元"
+    },
+    {
+      "stock_name": "信义光能",
+      "stock_code": "00968",
+      "industry": "光伏玻璃",
+      "main_business": "太阳能玻璃的制造及销售",
+      "market_cap": "400亿港元"
+    },
+    {
+      "stock_name": "爱旭股份",
+      "stock_code": "600732",
+      "industry": "太阳能电池片",
+      "main_business": "太阳能电池片的研发、生产和销售",
+      "market_cap": "400亿元"
+    },
+    {
+      "stock_name": "通威股份",
+      "stock_code": "600438",
+      "industry": "多晶硅",
+      "main_business": "高纯晶硅、太阳能电池等产品的研发、生产、销售",
+      "market_cap": "1500亿元"
+    },
+    {
+      "stock_name": "大全能源",
+      "stock_code": "688303",
+      "industry": "多晶硅",
+      "main_business": "高纯多晶硅的研发、生产和销售",
+      "market_cap": "1000亿元"
+    },
+    {
+      "stock_name": "奥佳华",
+      "stock_code": "002614",
+      "industry": "按摩器具",
+      "main_business": "健康电器产品的设计、制造和销售",
+      "market_cap": "100亿元"
+    },
+    {
+      "stock_name": "九阳股份",
+      "stock_code": "002242",
+      "industry": "小家电",
+      "main_business": "健康厨房电器研发、生产和销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "小熊电器",
+      "stock_code": "002959",
+      "industry": "创意小家电",
+      "main_business": "创意小家电研发、设计、生产和销售",
+      "market_cap": "150亿元"
+    },
+    {
+      "stock_name": "石头科技",
+      "stock_code": "688169",
+      "industry": "智能清洁电器",
+      "main_business": "智能清洁机器人等智能硬件的设计、研发、生产和销售",
+      "market_cap": "300亿元"
+    },
+    {
+      "stock_name": "科沃斯",
+      "stock_code": "603486",
+      "industry": "服务机器人",
+      "main_business": "各类家庭服务机器人、清洁类小家电等智能家用设备",
+      "market_cap": "250亿元"
+    },
+    {
+      "stock_name": "华帝股份",
+      "stock_code": "002035",
+      "industry": "厨卫电器",
+      "main_business": "厨房电器、热水器等厨卫产品的研发、生产和销售",
+      "market_cap": "80亿元"
+    },
+    {
+      "stock_name": "老板电器",
+      "stock_code": "002508",
+      "industry": "厨房电器",
+      "main_business": "吸油烟机、燃气灶、消毒柜等厨房电器",
+      "market_cap": "300亿元"
+    },
+    {
+      "stock_name": "火星人",
+      "stock_code": "300894",
+      "industry": "集成灶",
+      "main_business": "集成灶等集成厨房电器的研发、生产、销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "亿田智能",
+      "stock_code": "300911",
+      "industry": "集成灶",
+      "main_business": "集成灶为主的集成厨电产品研发、生产、销售",
+      "market_cap": "100亿元"
+    },
+    {
+      "stock_name": "洽洽食品",
+      "stock_code": "002557",
+      "industry": "休闲食品",
+      "main_business": "坚果炒货、谷物酥类等休闲食品的研发、生产和销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "良品铺子",
+      "stock_code": "603719",
+      "industry": "休闲食品",
+      "main_business": "休闲食品的研发、采购、销售",
+      "market_cap": "150亿元"
+    },
+    {
+      "stock_name": "三只松鼠",
+      "stock_code": "300783",
+      "industry": "休闲食品",
+      "main_business": "坚果、干果、茶叶等食品的研发、检测、分装及销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "盐津铺子",
+      "stock_code": "002847",
+      "industry": "休闲食品",
+      "main_business": "烘焙食品、辣条及其他休闲食品的研发、生产、销售",
+      "market_cap": "150亿元"
+    },
+    {
+      "stock_name": "桃李面包",
+      "stock_code": "603866",
+      "industry": "烘焙食品",
+      "main_business": "以面包为核心的烘焙类产品生产销售",
+      "market_cap": "200亿元"
+    },
+    {
+      "stock_name": "华统股份",
+      "stock_code": "002840",
+      "industry": "肉制品加工",
+      "main_business": "生猪屠宰及肉制品加工、销售",
+      "market_cap": "100亿元"
+    },
+    {
+      "stock_name": "春雪食品",
+      "stock_code": "605567",
+      "industry": "鸡肉制品",
+      "main_business": "鸡肉产品的生产加工与销售",
+      "market_cap": "80亿元"
+    },
+    {
+      "stock_name": "圣农发展",
+      "stock_code": "002299",
+      "industry": "白羽肉鸡",
+      "main_business": "白羽肉鸡饲养、屠宰加工一体化经营",
+      "market_cap": "300亿元"
+    },
+    {
+      "stock_name": "民和股份",
+      "stock_code": "002234",
+      "industry": "种鸡养殖",
+      "main_business": "父母代种鸡饲养、鸡苗生产销售",
+      "market_cap": "120亿元"
+    }
+  ]
+}

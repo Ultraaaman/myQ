@@ -31,7 +31,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # 添加项目路径
-sys.path.append(r'E:\projects\myQ')
+sys.path.append(r'D:\projects\q\myQ')
 
 # 导入 market_data 模块
 try:
@@ -91,7 +91,25 @@ def load_and_prepare_data(news_file_path, stock_code='601899'):
     daily_scores['weighted_score'] = (daily_scores['overall_score_mean'] *
                                      daily_scores['certainty_mean'])
 
+    # 新增：计算情感变化值
+    print("✓ 计算情感变化指标...")
+    daily_scores = daily_scores.sort_values('date').reset_index(drop=True)
+
+    # 前后两天的情感变化值
+    daily_scores['score_change_1d'] = daily_scores['overall_score_mean'].diff()
+    daily_scores['score_change_2d'] = daily_scores['overall_score_mean'].diff(2)
+    daily_scores['score_momentum'] = daily_scores['overall_score_mean'] - daily_scores['overall_score_mean'].shift(2)
+
+    # 情感变化方向和强度
+    daily_scores['score_direction'] = np.sign(daily_scores['score_change_1d'])
+    daily_scores['score_acceleration'] = daily_scores['score_change_1d'].diff()  # 二阶差分
+
+    # 滚动平均情感变化
+    daily_scores['score_change_ma3'] = daily_scores['score_change_1d'].rolling(3).mean()
+    daily_scores['score_volatility'] = daily_scores['overall_score_mean'].rolling(5).std()
+
     print(f"✓ 日度聚合: {len(daily_scores)} 天")
+    print(f"✓ 情感变化指标计算完成")
 
     # 获取股价数据
     if MARKET_DATA_AVAILABLE:
@@ -330,6 +348,14 @@ def merge_and_calculate_indicators(daily_scores, stock_data):
     merged_data['future_high_strength_3d'] = (merged_data['High'].shift(-3) - merged_data['Open']) / merged_data['Open']
     merged_data['future_high_strength_5d'] = (merged_data['High'].shift(-5) - merged_data['Open']) / merged_data['Open']
 
+    # 新增：未来最低价相关指标
+    print("✓ 计算未来最低价指标...")
+
+    # 未来最低价风险（当日开盘价到未来最低价的跌幅）
+    merged_data['future_low_risk_1d'] = (merged_data['Low'].shift(-1) - merged_data['Open']) / merged_data['Open']
+    merged_data['future_low_risk_3d'] = (merged_data['Low'].shift(-3) - merged_data['Open']) / merged_data['Open']
+    merged_data['future_low_risk_5d'] = (merged_data['Low'].shift(-5) - merged_data['Open']) / merged_data['Open']
+
     # 未来最高价突破程度（未来最高价相对当前收盘价）
     merged_data['future_high_breakout_1d'] = (merged_data['High'].shift(-1) - merged_data['Close']) / merged_data['Close']
     merged_data['future_high_breakout_3d'] = (merged_data['High'].shift(-3) - merged_data['Close']) / merged_data['Close']
@@ -443,6 +469,13 @@ def analyze_opening_strength_ic(merged_data):
         'future_upper_shadow_5d': '未来5天上影线'
     }
 
+    # 新增：最低价风险指标
+    low_indicators = {
+        'future_low_risk_1d': '未来1天最低价风险',
+        'future_low_risk_3d': '未来3天最低价风险',
+        'future_low_risk_5d': '未来5天最低价风险'
+    }
+
     print("1. 新闻评分与未来开盘强度IC分析:")
 
     for indicator, name in opening_indicators.items():
@@ -521,6 +554,52 @@ def analyze_opening_strength_ic(merged_data):
                 print(f"     相关系数: r = {corr_val:.4f} (p = {p_val:.4f}, {significance})")
                 print(f"     Normal IC: {ic_metrics['normal_ic']:.4f}")
                 print(f"     Rank IC: {ic_metrics['rank_ic']:.4f} ({ic_strength}预测能力)")
+                print(f"     样本数: {len(valid_data)}")
+                print()
+            else:
+                print(f"   {name}: 数据不足 (仅{len(valid_data)}个样本)")
+
+    # 新增：最低价风险分析
+    print("3. 新闻评分与未来最低价风险IC分析:")
+
+    for indicator, name in low_indicators.items():
+        if indicator in merged_data.columns:
+            valid_data = merged_data.dropna(subset=[score_col, indicator])
+
+            if len(valid_data) >= 3:
+                ic_metrics = calculate_ic_metrics(valid_data[score_col], valid_data[indicator])
+                corr_val, p_val = pearsonr(valid_data[score_col], valid_data[indicator])
+
+                results[indicator] = {
+                    'correlation': corr_val,
+                    'p_value': p_val,
+                    'normal_ic': ic_metrics['normal_ic'],
+                    'rank_ic': ic_metrics['rank_ic'],
+                    'sample_size': len(valid_data)
+                }
+
+                # 显著性判断
+                if p_val < 0.001:
+                    significance = "***极显著"
+                elif p_val < 0.01:
+                    significance = "**很显著"
+                elif p_val < 0.05:
+                    significance = "*显著"
+                elif p_val < 0.1:
+                    significance = "边际显著"
+                else:
+                    significance = "不显著"
+
+                ic_strength = "强" if abs(ic_metrics['rank_ic']) > 0.1 else "中等" if abs(ic_metrics['rank_ic']) > 0.05 else "弱"
+
+                # 风险指标的解读（负相关表示正面新闻降低下跌风险）
+                risk_interpretation = "降低下跌风险" if corr_val > 0 else "增加下跌风险" if corr_val < 0 else "无明显影响"
+
+                print(f"   {name}:")
+                print(f"     相关系数: r = {corr_val:.4f} (p = {p_val:.4f}, {significance})")
+                print(f"     Normal IC: {ic_metrics['normal_ic']:.4f}")
+                print(f"     Rank IC: {ic_metrics['rank_ic']:.4f} ({ic_strength}预测能力)")
+                print(f"     风险解读: 正面新闻{risk_interpretation}")
                 print(f"     样本数: {len(valid_data)}")
                 print()
             else:
@@ -620,6 +699,208 @@ def analyze_sentiment_thresholds(merged_data):
             print(f"   {label}: 样本不足 ({len(subset)}个)")
 
     return threshold_results
+
+def analyze_non_zero_sentiment(merged_data):
+    """
+    去掉0情感值后测试相关性
+    """
+    print("\n" + "=" * 60)
+    print("步骤 4.5: 去除零情感值的相关性分析")
+    print("=" * 60)
+
+    score_col = 'overall_score_mean'
+    target_cols = [
+        'future_open_strength_1d',
+        'future_open_strength_3d',
+        'future_open_strength_5d',
+        'future_high_strength_1d',
+        'future_high_strength_3d',
+        'future_high_strength_5d'
+    ]
+
+    print("1. 对比分析：包含vs排除零情感值")
+
+    comparison_results = []
+
+    for target_col in target_cols:
+        if target_col in merged_data.columns:
+            # 包含所有数据的相关性
+            all_data = merged_data.dropna(subset=[score_col, target_col])
+
+            # 排除零情感值的数据
+            non_zero_data = all_data[all_data[score_col] != 0]
+
+            if len(all_data) >= 3 and len(non_zero_data) >= 3:
+                # 计算两种情况的相关性
+                all_corr, all_p = pearsonr(all_data[score_col], all_data[target_col])
+                non_zero_corr, non_zero_p = pearsonr(non_zero_data[score_col], non_zero_data[target_col])
+
+                # 计算IC指标
+                all_ic = calculate_ic_metrics(all_data[score_col], all_data[target_col])
+                non_zero_ic = calculate_ic_metrics(non_zero_data[score_col], non_zero_data[target_col])
+
+                comparison_results.append({
+                    'target': target_col.replace('future_', '').replace('_', ' ').title(),
+                    'all_corr': all_corr,
+                    'all_p': all_p,
+                    'all_rank_ic': all_ic['rank_ic'],
+                    'all_sample': len(all_data),
+                    'non_zero_corr': non_zero_corr,
+                    'non_zero_p': non_zero_p,
+                    'non_zero_rank_ic': non_zero_ic['rank_ic'],
+                    'non_zero_sample': len(non_zero_data)
+                })
+
+                # 计算相关性提升
+                corr_improvement = abs(non_zero_corr) - abs(all_corr)
+                ic_improvement = abs(non_zero_ic['rank_ic']) - abs(all_ic['rank_ic'])
+
+                print(f"\n   {target_col.replace('future_', '').replace('_', ' ').title()}:")
+                print(f"     包含零值: r={all_corr:.4f} (p={all_p:.4f}), IC={all_ic['rank_ic']:.4f}, n={len(all_data)}")
+                print(f"     排除零值: r={non_zero_corr:.4f} (p={non_zero_p:.4f}), IC={non_zero_ic['rank_ic']:.4f}, n={len(non_zero_data)}")
+                print(f"     相关性提升: {corr_improvement:+.4f}, IC提升: {ic_improvement:+.4f}")
+
+                # 判断提升效果
+                if abs(non_zero_corr) > abs(all_corr) * 1.2:  # 提升20%以上
+                    print(f"     ✓ 排除零值显著提升预测能力")
+                elif abs(non_zero_corr) > abs(all_corr):
+                    print(f"     → 排除零值略微提升预测能力")
+                else:
+                    print(f"     ✗ 排除零值未能改善预测能力")
+
+    print(f"\n2. 零情感值统计信息:")
+    zero_sentiment_count = (merged_data[score_col] == 0).sum()
+    total_count = len(merged_data)
+    zero_ratio = zero_sentiment_count / total_count
+
+    print(f"   总样本数: {total_count}")
+    print(f"   零情感值天数: {zero_sentiment_count}")
+    print(f"   零情感值占比: {zero_ratio:.1%}")
+    print(f"   有效情感天数: {total_count - zero_sentiment_count}")
+
+    return comparison_results
+
+def analyze_sentiment_changes(merged_data):
+    """
+    分析前后两天的情感变化值与未来收益的关系
+    """
+    print("\n" + "=" * 60)
+    print("步骤 4.7: 情感变化值分析")
+    print("=" * 60)
+
+    change_indicators = {
+        'score_change_1d': '1天情感变化',
+        'score_change_2d': '2天情感变化',
+        'score_momentum': '情感动量(T vs T-2)',
+        'score_acceleration': '情感加速度(二阶差分)',
+        'score_change_ma3': '3天平均变化',
+        'score_volatility': '情感波动率'
+    }
+
+    target_indicators = {
+        'future_open_strength_1d': '未来1天开盘强度',
+        'future_open_strength_3d': '未来3天开盘强度',
+        'future_high_strength_1d': '未来1天最高价强度',
+        'future_high_strength_3d': '未来3天最高价强度'
+    }
+
+    print("1. 情感变化值 vs 绝对情感值预测能力对比:")
+
+    # 先分析绝对情感值
+    abs_score_results = {}
+    abs_score_col = 'overall_score_mean'
+
+    for target_col, target_name in target_indicators.items():
+        if target_col in merged_data.columns:
+            valid_data = merged_data.dropna(subset=[abs_score_col, target_col])
+            if len(valid_data) >= 3:
+                corr, p_val = pearsonr(valid_data[abs_score_col], valid_data[target_col])
+                ic_metrics = calculate_ic_metrics(valid_data[abs_score_col], valid_data[target_col])
+                abs_score_results[target_col] = {
+                    'corr': corr,
+                    'rank_ic': ic_metrics['rank_ic'],
+                    'sample_size': len(valid_data)
+                }
+
+    # 分析情感变化值
+    change_results = {}
+    best_improvements = []
+
+    for change_col, change_name in change_indicators.items():
+        if change_col in merged_data.columns:
+            print(f"\n   {change_name}:")
+            change_results[change_col] = {}
+
+            for target_col, target_name in target_indicators.items():
+                if target_col in merged_data.columns:
+                    valid_data = merged_data.dropna(subset=[change_col, target_col])
+
+                    if len(valid_data) >= 3:
+                        corr, p_val = pearsonr(valid_data[change_col], valid_data[target_col])
+                        ic_metrics = calculate_ic_metrics(valid_data[change_col], valid_data[target_col])
+
+                        change_results[change_col][target_col] = {
+                            'corr': corr,
+                            'rank_ic': ic_metrics['rank_ic'],
+                            'sample_size': len(valid_data)
+                        }
+
+                        # 与绝对值对比
+                        abs_ic = abs_score_results.get(target_col, {}).get('rank_ic', 0)
+                        change_ic = ic_metrics['rank_ic']
+                        ic_improvement = abs(change_ic) - abs(abs_ic)
+
+                        significance = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else ""
+
+                        print(f"     {target_name}: r={corr:.4f}{significance}, IC={change_ic:.4f}, 提升={ic_improvement:+.4f}")
+
+                        # 记录显著提升的组合
+                        if ic_improvement > 0.02:  # IC提升超过0.02
+                            best_improvements.append({
+                                'change_indicator': change_name,
+                                'target': target_name,
+                                'improvement': ic_improvement,
+                                'new_ic': change_ic,
+                                'correlation': corr,
+                                'p_value': p_val
+                            })
+
+    # 显示最佳改进组合
+    if best_improvements:
+        print(f"\n2. 最佳情感变化指标组合 (IC提升 > 0.02):")
+        best_improvements.sort(key=lambda x: x['improvement'], reverse=True)
+
+        for i, result in enumerate(best_improvements[:5], 1):
+            significance = "***" if result['p_value'] < 0.001 else "**" if result['p_value'] < 0.01 else "*" if result['p_value'] < 0.05 else ""
+            print(f"   {i}. {result['change_indicator']} → {result['target']}")
+            print(f"      IC: {result['new_ic']:.4f}, 提升: +{result['improvement']:.4f}")
+            print(f"      相关性: {result['correlation']:.4f}{significance} (p={result['p_value']:.4f})")
+    else:
+        print(f"\n2. 未发现显著的IC提升组合")
+
+    # 分析情感变化的方向性效果
+    print(f"\n3. 情感变化方向性分析:")
+    if 'score_direction' in merged_data.columns and 'future_open_strength_1d' in merged_data.columns:
+        direction_data = merged_data.dropna(subset=['score_direction', 'future_open_strength_1d'])
+
+        if len(direction_data) > 0:
+            # 按方向分组分析
+            positive_change = direction_data[direction_data['score_direction'] == 1]['future_open_strength_1d']
+            negative_change = direction_data[direction_data['score_direction'] == -1]['future_open_strength_1d']
+            no_change = direction_data[direction_data['score_direction'] == 0]['future_open_strength_1d']
+
+            print(f"   情感上升: 平均开盘强度 = {positive_change.mean():.4f} (n={len(positive_change)})")
+            print(f"   情感下降: 平均开盘强度 = {negative_change.mean():.4f} (n={len(negative_change)})")
+            print(f"   情感不变: 平均开盘强度 = {no_change.mean():.4f} (n={len(no_change)})")
+
+            # 方向差异显著性检验
+            if len(positive_change) > 0 and len(negative_change) > 0:
+                from scipy.stats import ttest_ind
+                t_stat, p_val = ttest_ind(positive_change, negative_change)
+                significance = "显著" if p_val < 0.05 else "不显著"
+                print(f"   上升vs下降差异: {positive_change.mean() - negative_change.mean():.4f} (t={t_stat:.2f}, p={p_val:.4f}, {significance})")
+
+    return change_results, best_improvements
 
 def analyze_time_decay(merged_data):
     """分析时间衰减效应"""
@@ -807,30 +1088,57 @@ def create_visualization(merged_data):
         ax2.set_ylabel('Absolute Correlation')
         ax2.grid(True, alpha=0.3)
 
-    # 图3: 不同情感强度的开盘强度分布
+    # 图3: 情感变化值 vs 绝对值对比
     ax3 = axes[0, 2]
-    if 'future_open_strength_1d' in merged_data.columns:
-        valid_data = merged_data.dropna(subset=[score_col, 'future_open_strength_1d'])
+    if 'score_change_1d' in merged_data.columns and 'future_open_strength_1d' in merged_data.columns:
+        # 绝对情感值
+        abs_data = merged_data.dropna(subset=[score_col, 'future_open_strength_1d'])
+        # 情感变化值
+        change_data = merged_data.dropna(subset=['score_change_1d', 'future_open_strength_1d'])
 
-        # 创建情感分组
-        valid_data['sentiment_group'] = pd.cut(valid_data[score_col],
-                                              bins=[-np.inf, -1, 0, 1, np.inf],
-                                              labels=['Negative', 'Slightly Negative', 'Slightly Positive', 'Positive'])
+        if len(abs_data) > 2 and len(change_data) > 2:
+            abs_corr, _ = pearsonr(abs_data[score_col], abs_data['future_open_strength_1d'])
+            change_corr, _ = pearsonr(change_data['score_change_1d'], change_data['future_open_strength_1d'])
 
-        groups = []
-        labels = []
-        for group in ['Negative', 'Slightly Negative', 'Slightly Positive', 'Positive']:
-            group_data = valid_data[valid_data['sentiment_group'] == group]['future_open_strength_1d'] * 100
-            if len(group_data) > 0:
-                groups.append(group_data)
-                labels.append(f'{group}\n(n={len(group_data)})')
+            # 创建对比图
+            indicators = ['Absolute\nSentiment', 'Sentiment\nChange']
+            correlations = [abs(abs_corr), abs(change_corr)]
+            colors = ['blue' if abs(abs_corr) > abs(change_corr) else 'lightblue',
+                     'red' if abs(change_corr) > abs(abs_corr) else 'pink']
 
-        if groups:
-            ax3.boxplot(groups, labels=labels)
-            ax3.set_title('Opening Strength by Sentiment Intensity', fontsize=10, fontweight='bold')
-            ax3.set_ylabel('Future 1-Day Opening Strength (%)')
+            bars = ax3.bar(indicators, correlations, color=colors, alpha=0.7)
+            ax3.set_title('Absolute vs Change Sentiment Correlation', fontsize=10, fontweight='bold')
+            ax3.set_ylabel('Absolute Correlation')
             ax3.grid(True, alpha=0.3)
-            ax3.axhline(y=0, color='r', linestyle='--', alpha=0.5)
+
+            # 添加数值标签
+            for bar, corr in zip(bars, [abs_corr, change_corr]):
+                ax3.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.001,
+                        f'{corr:.3f}', ha='center', va='bottom', fontsize=9)
+    else:
+        # 回退到原来的情感分组图
+        if 'future_open_strength_1d' in merged_data.columns:
+            valid_data = merged_data.dropna(subset=[score_col, 'future_open_strength_1d'])
+
+            # 创建情感分组
+            valid_data['sentiment_group'] = pd.cut(valid_data[score_col],
+                                                  bins=[-np.inf, -1, 0, 1, np.inf],
+                                                  labels=['Negative', 'Slightly Negative', 'Slightly Positive', 'Positive'])
+
+            groups = []
+            labels = []
+            for group in ['Negative', 'Slightly Negative', 'Slightly Positive', 'Positive']:
+                group_data = valid_data[valid_data['sentiment_group'] == group]['future_open_strength_1d'] * 100
+                if len(group_data) > 0:
+                    groups.append(group_data)
+                    labels.append(f'{group}\n(n={len(group_data)})')
+
+            if groups:
+                ax3.boxplot(groups, labels=labels)
+                ax3.set_title('Opening Strength by Sentiment Intensity', fontsize=10, fontweight='bold')
+                ax3.set_ylabel('Future 1-Day Opening Strength (%)')
+                ax3.grid(True, alpha=0.3)
+                ax3.axhline(y=0, color='r', linestyle='--', alpha=0.5)
 
     # 图4: 开盘强度时间序列
     ax4 = axes[1, 0]
@@ -855,41 +1163,66 @@ def create_visualization(merged_data):
         ax4.tick_params(axis='x', rotation=45)
         ax4.grid(True, alpha=0.3)
 
-    # 图5: 组合指标效果比较
+    # 图5: 包含vs排除零值的效果对比
     ax5 = axes[1, 1]
 
-    # 计算不同指标的IC
+    # 计算包含/排除零值的IC对比
     if 'future_open_strength_1d' in merged_data.columns:
-        indicators = {
-            'overall_score_mean': 'News Score',
-            'score_volume_signal': 'Score × Volume',
-            'score_volatility_signal': 'Score × Volatility'
-        }
+        # 包含所有数据
+        all_data = merged_data.dropna(subset=[score_col, 'future_open_strength_1d'])
+        # 排除零情感值
+        non_zero_data = all_data[all_data[score_col] != 0]
 
-        ic_values = []
-        indicator_names = []
+        if len(all_data) > 2 and len(non_zero_data) > 2:
+            all_ic = calculate_ic_metrics(all_data[score_col], all_data['future_open_strength_1d'])
+            non_zero_ic = calculate_ic_metrics(non_zero_data[score_col], non_zero_data['future_open_strength_1d'])
 
-        for indicator, name in indicators.items():
-            if indicator in merged_data.columns:
-                valid_data = merged_data.dropna(subset=[indicator, 'future_open_strength_1d'])
-                if len(valid_data) > 2:
-                    ic_metrics = calculate_ic_metrics(valid_data[indicator],
-                                                     valid_data['future_open_strength_1d'])
-                    ic_values.append(abs(ic_metrics['rank_ic']))
-                    indicator_names.append(name)
+            categories = ['Include\nZero', 'Exclude\nZero']
+            ic_values = [abs(all_ic['rank_ic']), abs(non_zero_ic['rank_ic'])]
+            colors = ['lightcoral' if abs(all_ic['rank_ic']) > abs(non_zero_ic['rank_ic']) else 'pink',
+                     'darkgreen' if abs(non_zero_ic['rank_ic']) > abs(all_ic['rank_ic']) else 'lightgreen']
 
-        if ic_values:
-            bars = ax5.bar(indicator_names, ic_values, alpha=0.7,
-                          color=['blue', 'green', 'orange'][:len(ic_values)])
-            ax5.set_title('Combined Indicators Prediction Comparison', fontsize=10, fontweight='bold')
+            bars = ax5.bar(categories, ic_values, color=colors, alpha=0.7)
+            ax5.set_title('Zero Sentiment Impact on Prediction', fontsize=10, fontweight='bold')
             ax5.set_ylabel('Absolute Rank IC')
-            ax5.tick_params(axis='x', rotation=45)
             ax5.grid(True, alpha=0.3)
 
-            # 添加数值标签
-            for bar, value in zip(bars, ic_values):
-                ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.001,
-                        f'{value:.3f}', ha='center', va='bottom', fontsize=8)
+            # 添加样本数标签
+            for bar, ic_val, sample_count in zip(bars, [all_ic['rank_ic'], non_zero_ic['rank_ic']], [len(all_data), len(non_zero_data)]):
+                ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
+                        f'{ic_val:.3f}\n(n={sample_count})', ha='center', va='bottom', fontsize=8)
+        else:
+            # 回退到原来的组合指标图
+            indicators = {
+                'overall_score_mean': 'News Score',
+                'score_volume_signal': 'Score × Volume',
+                'score_volatility_signal': 'Score × Volatility'
+            }
+
+            ic_values = []
+            indicator_names = []
+
+            for indicator, name in indicators.items():
+                if indicator in merged_data.columns:
+                    valid_data = merged_data.dropna(subset=[indicator, 'future_open_strength_1d'])
+                    if len(valid_data) > 2:
+                        ic_metrics = calculate_ic_metrics(valid_data[indicator],
+                                                         valid_data['future_open_strength_1d'])
+                        ic_values.append(abs(ic_metrics['rank_ic']))
+                        indicator_names.append(name)
+
+            if ic_values:
+                bars = ax5.bar(indicator_names, ic_values, alpha=0.7,
+                              color=['blue', 'green', 'orange'][:len(ic_values)])
+                ax5.set_title('Combined Indicators Prediction Comparison', fontsize=10, fontweight='bold')
+                ax5.set_ylabel('Absolute Rank IC')
+                ax5.tick_params(axis='x', rotation=45)
+                ax5.grid(True, alpha=0.3)
+
+                # 添加数值标签
+                for bar, value in zip(bars, ic_values):
+                    ax5.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.001,
+                            f'{value:.3f}', ha='center', va='bottom', fontsize=8)
 
     # 图6: 开盘强度分布直方图
     ax6 = axes[1, 2]
@@ -981,7 +1314,7 @@ def main():
     print("=" * 80)
 
     # 文件路径配置
-    news_data_path = r'E:\projects\myQ\scripts\news_scores_result_1y_zijin.csv'
+    news_data_path = r'D:\projects\q\myQ\scripts\news_scores_result_1y_yanjin.csv'
 
     # 检查文件是否存在
     if not os.path.exists(news_data_path):
@@ -1001,6 +1334,12 @@ def main():
 
         # 步骤3: 情感阈值分析
         threshold_results = analyze_sentiment_thresholds(merged_data)
+
+        # 新增步骤: 去除零情感值分析
+        non_zero_results = analyze_non_zero_sentiment(merged_data)
+
+        # 新增步骤: 情感变化值分析
+        change_results, best_improvements = analyze_sentiment_changes(merged_data)
 
         # 步骤4: 时间衰减分析
         decay_results = analyze_time_decay(merged_data)
@@ -1034,6 +1373,20 @@ def main():
         print("• 开盘强度相比简单收益率更能反映新闻影响")
         print("• 建议重点关注开盘后15分钟的价格行为")
         print("• 结合成交量异常可以提升预测效果")
+
+        # 输出新分析结果
+        if 'non_zero_results' in locals() and non_zero_results:
+            print("\n=== 新增发现 ===")
+            zero_improvements = [r for r in non_zero_results if abs(r['non_zero_rank_ic']) > abs(r['all_rank_ic']) * 1.1]
+            if zero_improvements:
+                print(f"• 排除零情感值可提升 {len(zero_improvements)} 个指标的预测能力")
+                best_zero_improvement = max(zero_improvements, key=lambda x: abs(x['non_zero_rank_ic']) - abs(x['all_rank_ic']))
+                print(f"• 最大提升: {best_zero_improvement['target']} (IC: {best_zero_improvement['all_rank_ic']:.4f} → {best_zero_improvement['non_zero_rank_ic']:.4f})")
+
+        if 'best_improvements' in locals() and best_improvements:
+            print(f"• 情感变化值在 {len(best_improvements)} 个组合中优于绝对值")
+            top_change = best_improvements[0]
+            print(f"• 最佳变化指标: {top_change['change_indicator']} → {top_change['target']} (IC: {top_change['new_ic']:.4f})")
 
     except Exception as e:
         print(f"✗ 分析过程中出现错误: {e}")
