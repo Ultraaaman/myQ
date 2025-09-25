@@ -13,7 +13,7 @@ class DCFValuationModel:
         self.market = market
     
     def calculate_dcf_valuation(self, financial_data, company_info, ticker=None, 
-                              growth_years=5, terminal_growth=2.5, discount_rate=10):
+                              growth_years=5, terminal_growth=2.5, discount_rate=10,growing=False):
         """DCF估值计算"""
         print(f"\n{'='*60}")
         print("DCF估值分析")
@@ -22,6 +22,9 @@ class DCFValuationModel:
         try:
             if self.market == 'US' and ticker:
                 return self._calculate_us_dcf(financial_data, company_info, ticker, 
+                                           growth_years, terminal_growth, discount_rate)
+            elif self.market == 'CN' and growing == True:
+                return self._calculate_cn_dcf_growing(financial_data, company_info,
                                            growth_years, terminal_growth, discount_rate)
             elif self.market == 'CN':
                 return self._calculate_cn_dcf(financial_data, company_info,
@@ -130,10 +133,192 @@ class DCFValuationModel:
             'current_price': None,
             'upside_potential': None
         }
-    
+    def _calculate_cn_dcf_growing(self, financial_data, company_info, 
+                      growth_years, terminal_growth, discount_rate,recovery_aggressiveness="aggressive"):
+       
+        """
+        计算中国股票DCF估值（允许初期现金流为负，并支持激进/保守的转正策略）
+
+        参数:
+        recovery_aggressiveness: "standard" (保守, recovery_rate=0.30) 或 "aggressive" (激进, recovery_rate=0.60)
+        """
+        try:
+            # ---------- 基本校验与读取 ----------
+            if 'indicators' not in financial_data:
+                print("无法获取中国股票财务指标数据")
+                return None
+
+            indicators = financial_data['indicators']
+            if indicators.empty:
+                print("财务指标数据为空")
+                return None
+
+            indicators['日期'] = pd.to_datetime(indicators['日期'])
+            indicators = indicators.sort_values('日期', ascending=True)
+            latest = indicators.iloc[-1]
+
+            ocf_per_share = latest.get('每股经营性现金流(元)', None)
+            if ocf_per_share is None:
+                print("无法获取每股经营现金流数据")
+                return None
+
+            eps = latest.get('摊薄每股收益(元)', 0)
+
+            print(f"基础数据:")
+            print(f"  每股经营现金流: {ocf_per_share:.2f} 元")
+            print(f"  每股收益: {eps:.2f} 元")
+
+            # 历史增长率（保持你现有的方法）
+            indicators_desc = indicators.sort_values('日期', ascending=False)
+            historical_growth = self._calculate_cn_historical_cf_growth(indicators_desc)
+            if historical_growth is not None:
+                print(f"  历史现金流增长率: {historical_growth:.1f}%")
+
+            # 基础增长率（和你之前的一致逻辑）
+            if historical_growth is not None and abs(historical_growth) < 50:
+                base_growth = historical_growth * 0.7
+            else:
+                base_growth = 8.0
+
+            # 构造逐年递减的增长率
+            growth_rates = []
+            for i in range(growth_years):
+                year_growth = base_growth * ((0.8) ** i)
+                growth_rates.append(max(year_growth, terminal_growth))
+
+            print(f"\nDCF假设:")
+            print(f"  预测期: {growth_years} 年")
+            print(f"  年增长率: {[f'{g:.1f}%' for g in growth_rates]}")
+            print(f"  永续增长率: {terminal_growth}%")
+            print(f"  折现率(WACC): {discount_rate}%")
+            print(f"  负值转正策略: {recovery_aggressiveness}")
+
+            # ---------- 选择 recovery_rate ----------
+            if recovery_aggressiveness == "aggressive":
+                recovery_rate = 0.60
+            else:
+                recovery_rate = 0.30
+
+            # ---------- 预测未来现金流（允许负并逐年收复） ----------
+            future_cf_per_share = []
+            base_cf = float(ocf_per_share)
+
+            # 如果 base_cf 负，则 gap 为正（需要收复的量）
+            if base_cf < 0:
+                gap = -base_cf
+            else:
+                gap = 0.0
+
+            for i, growth_rate in enumerate(growth_rates):
+                year_idx = i  # 0-based
+
+                if base_cf < 0:
+                    # 已收复比例（逐年累积），用 1 - (1 - r)^(n) 的形式表示累计收复量
+                    recovered_fraction = 1.0 - (1.0 - recovery_rate) ** (year_idx + 1)
+                    recovered_amount = gap * recovered_fraction  # 到第 i 年累计收复的绝对量
+
+                    # 本年基础（收复后的基础现金流），注意仍可能为负直到收复足够
+                    base_after_recover = base_cf + recovered_amount
+
+                    # 将本年基础再按增长率调整（增长率对“收复后”的基数生效）
+                    projected_cf = base_after_recover * (1.0 + growth_rate / 100.0)
+
+                else:
+                    # base_cf >= 0，正常按增长率延展（复利）
+                    if i == 0:
+                        projected_cf = base_cf * (1.0 + growth_rate / 100.0)
+                    else:
+                        projected_cf = future_cf_per_share[-1] * (1.0 + growth_rate / 100.0)
+
+                # 如果是预测期最后一年仍为负，则把它提升到 0（避免负终值）
+                if i == growth_years - 1 and projected_cf < 0:
+                    projected_cf = 0.0
+
+                future_cf_per_share.append(projected_cf)
+                print(f"    第{i+1}年每股现金流: {projected_cf:.4f} 元 (增长率: {growth_rate:.1f}%)")
+
+            # ---------- 现值计算 ----------
+            pv_future_cf_per_share = []
+            for i, cf in enumerate(future_cf_per_share):
+                pv = cf / ((1 + discount_rate / 100.0) ** (i + 1))
+                pv_future_cf_per_share.append(pv)
+
+            # 终值
+            terminal_cf = future_cf_per_share[-1] * (1.0 + terminal_growth / 100.0)
+            terminal_cf = max(0.0, terminal_cf)
+            terminal_value_per_share = terminal_cf / max((discount_rate / 100.0 - terminal_growth / 100.0), 1e-6)
+            pv_terminal_value_per_share = terminal_value_per_share / ((1 + discount_rate / 100.0) ** growth_years)
+
+            # 内在价值
+            intrinsic_value_per_share = sum(pv_future_cf_per_share) + pv_terminal_value_per_share
+
+            print(f"\nDCF计算结果:")
+            print(f"  预测期现金流现值: {sum(pv_future_cf_per_share):.4f} 元/股")
+            print(f"  终值: {terminal_value_per_share:.4f} 元/股")
+            print(f"  终值现值: {pv_terminal_value_per_share:.4f} 元/股")
+            print(f"  每股内在价值: {intrinsic_value_per_share:.4f} 元")
+
+            # ---------- 获取当前价格并比较（保留你原先逻辑） ----------
+            current_price = None
+            upside_potential = None
+            try:
+                if eps > 0:
+                    try:
+                        import akshare as ak
+                        stock_hist = ak.stock_zh_a_hist(symbol=self.symbol, period="daily", adjust="")
+                        if not stock_hist.empty:
+                            current_price = float(stock_hist.iloc[-1]['收盘'])
+                    except:
+                        pass
+
+                if current_price:
+                    upside_potential = (intrinsic_value_per_share / current_price - 1) * 100
+                    print(f"  当前股价: {current_price:.2f} 元")
+                    print(f"  上涨空间: {upside_potential:+.1f}%")
+                    margin_of_safety = (1 - current_price / intrinsic_value_per_share) * 100
+                    print(f"  安全边际: {margin_of_safety:.1f}%")
+                else:
+                    print("  无法获取当前股价，请手动比较")
+            except Exception as e:
+                print(f"  获取股价时出错: {e}")
+
+            # ---------- 敏感性分析 ----------
+            print(f"\n敏感性分析:")
+            print(f"  折现率变动±1%对内在价值的影响:")
+            for rate_change in [-1, 1]:
+                new_rate = discount_rate + rate_change
+                if new_rate > terminal_growth:
+                    new_terminal_value = terminal_cf / max((new_rate / 100.0 - terminal_growth / 100.0), 1e-6)
+                    new_pv_terminal = new_terminal_value / ((1 + new_rate / 100.0) ** growth_years)
+                    new_pv_cf = sum([cf / ((1 + new_rate / 100.0) ** (i + 1)) for i, cf in enumerate(future_cf_per_share)])
+                    new_intrinsic = new_pv_cf + new_pv_terminal
+                    change_pct = (new_intrinsic / intrinsic_value_per_share - 1) * 100
+                    print(f"    折现率{new_rate:.1f}%: {new_intrinsic:.4f} 元/股 ({change_pct:+.1f}%)")
+
+            return {
+                'intrinsic_value_per_share': intrinsic_value_per_share,
+                'value_per_share': intrinsic_value_per_share,
+                'current_price': current_price,
+                'upside_potential': upside_potential,
+                'terminal_value_per_share': terminal_value_per_share,
+                'pv_operating_cf': sum(pv_future_cf_per_share),
+                'pv_terminal_value': pv_terminal_value_per_share,
+                'growth_rates': growth_rates,
+                'discount_rate': discount_rate,
+                'terminal_growth': terminal_growth,
+                'recovery_aggressiveness': recovery_aggressiveness,
+                'recovery_rate': recovery_rate
+            }
+
+        except Exception as e:
+            print(f"中国股票DCF估值计算失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def _calculate_cn_dcf(self, financial_data, company_info, 
-                         growth_years, terminal_growth, discount_rate):
-        """计算中国股票DCF估值"""
+                      growth_years, terminal_growth, discount_rate):
+        """计算中国股票DCF估值（允许初期现金流为负，逐年转正）"""
         try:
             # 获取财务指标数据
             if 'indicators' not in financial_data:
@@ -151,9 +336,9 @@ class DCFValuationModel:
             latest = indicators.iloc[-1]
             
             # 获取每股经营现金流
-            ocf_per_share = latest.get('每股经营性现金流(元)', 0)
-            if ocf_per_share <= 0:
-                print("无法获取有效的每股经营现金流数据")
+            ocf_per_share = latest.get('每股经营性现金流(元)', None)
+            if ocf_per_share is None:
+                print("无法获取每股经营现金流数据")
                 return None
             
             # 获取每股收益（用于估算增长率）
@@ -163,26 +348,23 @@ class DCFValuationModel:
             print(f"  每股经营现金流: {ocf_per_share:.2f} 元")
             print(f"  每股收益: {eps:.2f} 元")
             
-            # 计算历史现金流增长率（传入降序排列的数据）
+            # 历史现金流增长率
             indicators_desc = indicators.sort_values('日期', ascending=False)
             historical_growth = self._calculate_cn_historical_cf_growth(indicators_desc)
             if historical_growth is not None:
                 print(f"  历史现金流增长率: {historical_growth:.1f}%")
             
-            # 设定增长率（基于历史增长率调整）
-            if historical_growth and abs(historical_growth) < 50:  # 排除异常值
-                print(f"historical growth {historical_growth}")
-                # 使用历史增长率的70%作为预测增长率（更保守）
+            # 基础增长率
+            if historical_growth is not None and abs(historical_growth) < 50:
                 base_growth = historical_growth * 0.7
             else:
-                # 默认增长率
                 base_growth = 8.0
             
-            # 设定递减的增长率（更现实）
+            # 设置递减增长率
             growth_rates = []
             for i in range(growth_years):
-                year_growth = base_growth * ((0.8) ** i)  # 逐年递减
-                growth_rates.append(max(year_growth, terminal_growth))  # 不低于永续增长率
+                year_growth = base_growth * ((0.8) ** i)
+                growth_rates.append(max(year_growth, terminal_growth))
             
             print(f"\nDCF假设:")
             print(f"  预测期: {growth_years} 年")
@@ -190,10 +372,9 @@ class DCFValuationModel:
             print(f"  永续增长率: {terminal_growth}%")
             print(f"  折现率(WACC): {discount_rate}%")
             
-            # 预测未来现金流（每股）
+            # 预测未来现金流（每股），允许负值逐年转正
             future_cf_per_share = []
             base_cf = ocf_per_share
-            
             for i, growth_rate in enumerate(growth_rates):
                 if i == 0:
                     projected_cf = base_cf * (1 + growth_rate/100)
@@ -202,15 +383,16 @@ class DCFValuationModel:
                 future_cf_per_share.append(projected_cf)
                 print(f"    第{i+1}年每股现金流: {projected_cf:.2f} 元 (增长率: {growth_rate:.1f}%)")
             
-            # 计算预测期现值（每股）
+            # 预测期现值
             pv_future_cf_per_share = []
             for i, cf in enumerate(future_cf_per_share):
                 pv = cf / ((1 + discount_rate/100) ** (i + 1))
                 pv_future_cf_per_share.append(pv)
             
-            # 计算终值（每股）
+            # 终值计算
             terminal_cf = future_cf_per_share[-1] * (1 + terminal_growth/100)
-            terminal_value_per_share = terminal_cf / (discount_rate/100 - terminal_growth/100)
+            terminal_cf = max(0, terminal_cf)  # 终值不能为负
+            terminal_value_per_share = terminal_cf / max((discount_rate/100 - terminal_growth/100), 1e-6)
             pv_terminal_value_per_share = terminal_value_per_share / ((1 + discount_rate/100) ** growth_years)
             
             # 每股内在价值
@@ -227,9 +409,7 @@ class DCFValuationModel:
             upside_potential = None
             
             try:
-                # 方法1：如果有PE数据，可以估算当前价格
                 if eps > 0:
-                    # 尝试获取当前股价（通过akshare）
                     try:
                         import akshare as ak
                         stock_hist = ak.stock_zh_a_hist(symbol=self.symbol, period="daily", adjust="")
@@ -242,8 +422,6 @@ class DCFValuationModel:
                     upside_potential = (intrinsic_value_per_share / current_price - 1) * 100
                     print(f"  当前股价: {current_price:.2f} 元")
                     print(f"  上涨空间: {upside_potential:+.1f}%")
-                    
-                    # 安全边际分析
                     margin_of_safety = (1 - current_price / intrinsic_value_per_share) * 100
                     print(f"  安全边际: {margin_of_safety:.1f}%")
                 else:
@@ -255,24 +433,19 @@ class DCFValuationModel:
             # 敏感性分析
             print(f"\n敏感性分析:")
             print(f"  折现率变动±1%对内在价值的影响:")
-            
             for rate_change in [-1, 1]:
                 new_rate = discount_rate + rate_change
-                if new_rate > terminal_growth:  # 确保折现率大于永续增长率
-                    # 重新计算终值现值
-                    new_terminal_value = terminal_cf / (new_rate/100 - terminal_growth/100)
+                if new_rate > terminal_growth:
+                    new_terminal_value = terminal_cf / max((new_rate/100 - terminal_growth/100), 1e-6)
                     new_pv_terminal = new_terminal_value / ((1 + new_rate/100) ** growth_years)
-                    
-                    # 重新计算预测期现值
                     new_pv_cf = sum([cf / ((1 + new_rate/100) ** (i + 1)) for i, cf in enumerate(future_cf_per_share)])
                     new_intrinsic = new_pv_cf + new_pv_terminal
-                    
                     change_pct = (new_intrinsic / intrinsic_value_per_share - 1) * 100
                     print(f"    折现率{new_rate:.1f}%: {new_intrinsic:.2f} 元/股 ({change_pct:+.1f}%)")
             
             return {
                 'intrinsic_value_per_share': intrinsic_value_per_share,
-                'value_per_share': intrinsic_value_per_share,  # 兼容性
+                'value_per_share': intrinsic_value_per_share,
                 'current_price': current_price,
                 'upside_potential': upside_potential,
                 'terminal_value_per_share': terminal_value_per_share,
@@ -282,12 +455,13 @@ class DCFValuationModel:
                 'discount_rate': discount_rate,
                 'terminal_growth': terminal_growth
             }
-            
+        
         except Exception as e:
             print(f"中国股票DCF估值计算失败: {e}")
             import traceback
             traceback.print_exc()
             return None
+
     
     def _calculate_cn_historical_cf_growth(self, indicators):
         """计算中国股票历史现金流增长率

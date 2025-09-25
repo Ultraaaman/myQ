@@ -16,7 +16,10 @@
       "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts\\opening_strength_news_analysis.py\")",
       "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" -c \"import sys; sys.path.append(''D:/projects/q/myQ/scripts''); from daily_news_analyzer import DailyNewsAnalyzer; print(''✅ DailyNewsAnalyzer imported successfully'')\")",
       "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts\\daily_news_analyzer.py\")",
-      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts/daily_news_analyzer.py\")"
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts/daily_news_analyzer.py\")",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"D:\\projects\\q\\myQ\\scripts\\single_stock_factor_analysis.py\")",
+      "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts\\single_stock_factor_analysis.py\")",
+      "Bash(where python)"
     ],
     "deny": [],
     "ask": []
