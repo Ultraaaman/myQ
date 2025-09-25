@@ -1314,7 +1314,7 @@ def main():
     print("=" * 80)
 
     # 文件路径配置
-    news_data_path = r'D:\projects\q\myQ\scripts\news_scores_result_1y_yanjin.csv'
+    news_data_path = r'E:\projects\myQ\scripts\news_scores_result_1y_yanjin.csv'
 
     # 检查文件是否存在
     if not os.path.exists(news_data_path):

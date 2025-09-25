@@ -14,6 +14,7 @@ from pathlib import Path
 import sys
 import os
 sys.path.append('D:/projects/q/myQ')
+sys.path.append(r'E:\projects\myQ')
 from quantlib.market_data import get_stock_data
 import warnings
 warnings.filterwarnings('ignore')
@@ -22,7 +23,7 @@ def load_and_merge_data():
     """加载新闻数据并获取对应的股票价格数据"""
     try:
         # 加载新闻情感分析数据
-        news_path = "D:/projects/q/myQ/scripts/news_scores_result_1y_yanjin.csv"
+        news_path = r"E:\projects\myQ\scripts\news_scores_result_1y_yanjin.csv"
         news_df = pd.read_csv(news_path, encoding='utf-8-sig')
         print(f"加载新闻数据: {len(news_df)} 条")
 

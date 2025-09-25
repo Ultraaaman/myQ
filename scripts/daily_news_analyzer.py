@@ -38,7 +38,7 @@ class DailyNewsAnalyzer:
 
         # 设置文件路径
         print(f"🔧 设置文件路径...")
-        self.base_dir = Path("D:/projects/q/myQ")
+        self.base_dir = Path(r"E:\projects\myQ")
         self.output_dir = self.base_dir / "output" / "daily_analysis"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         print(f"✅ 输出目录: {self.output_dir}")
@@ -86,12 +86,12 @@ class DailyNewsAnalyzer:
             stock_keywords.append(stock['stock_code'])
 
             # 提取行业和主营业务关键词
-            if 'industry' in stock:
-                stock_keywords.extend(stock['industry'].split())
-            if 'main_business' in stock:
-                business_words = stock['main_business'].replace('，', ' ').replace('、', ' ').split()
-                business_words = [w for w in business_words if len(w) >= 2][:5]
-                stock_keywords.extend(business_words)
+            # if 'industry' in stock:
+            #     stock_keywords.extend(stock['industry'].split())
+            # if 'main_business' in stock:
+            #     business_words = stock['main_business'].replace('，', ' ').replace('、', ' ').split()
+            #     business_words = [w for w in business_words if len(w) >= 2][:5]
+            #     stock_keywords.extend(business_words)
 
             # 去重
             keywords[stock['stock_code']] = list(set(stock_keywords))
@@ -539,7 +539,7 @@ def main():
     analyzer = DailyNewsAnalyzer(TUSHARE_TOKEN, OPENROUTER_API_KEY)
 
     # 完整流程
-    target_date = "2024-12-20"  # 可以修改为需要的日期
+    target_date = "2025-09-24"  # 可以修改为需要的日期
 
     print(f"\n📰 步骤1: 获取新闻数据...")
     news_df = analyzer.get_daily_news(target_date)
