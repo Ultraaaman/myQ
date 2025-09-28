@@ -852,7 +852,7 @@ def main():
     analyzer = DailyNewsAnalyzer(TUSHARE_TOKEN, OPENROUTER_API_KEY)
 
     # 完整流程
-    target_date = "2025-09-25"  # 可以修改为需要的日期
+    target_date = "2025-09-28"  # 可以修改为需要的日期
 
     print(f"\n📰 步骤1: 获取新闻数据...")
     news_df = analyzer.get_daily_news(target_date)
