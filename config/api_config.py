@@ -12,7 +12,7 @@ TUSHARE_TOKEN = "3b22745fa720272a07322298890b0835e74147be8419d0389d0d1be8"  # �
 OPENROUTER_API_KEY = "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"  # 在 https://openrouter.ai/ 获取
 
 # 模型配置
-DEFAULT_MODEL = "deepseek/deepseek-chat-v3.1:free"
+DEFAULT_MODEL = "z-ai/glm-4.5-air:free"
 
 # 分析参数
 FACTOR_STRENGTH_THRESHOLD = 3.0  # 强因子阈值

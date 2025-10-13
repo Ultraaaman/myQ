@@ -19,7 +19,8 @@
       "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts/daily_news_analyzer.py\")",
       "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"D:\\projects\\q\\myQ\\scripts\\single_stock_factor_analysis.py\")",
       "Bash(\"C:\\Users\\10442\\miniconda3\\envs\\quant\\python.exe\" \"scripts\\single_stock_factor_analysis.py\")",
-      "Bash(where python)"
+      "Bash(where python)",
+      "Read(//d/projects/q/myQ/output/analyzed_news/**)"
     ],
     "deny": [],
     "ask": []
